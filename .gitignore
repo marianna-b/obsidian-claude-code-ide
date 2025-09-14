@@ -1,45 +1,91 @@
-# vscode
-.vscode 
+# ======== IDE & Editor Files ========
+# VSCode
+.vscode/
+*.code-workspace
 
-# Intellij
+# IntelliJ
 *.iml
-.idea
+.idea/
 
-# npm
-node_modules
+# ======== Dependencies ========
+# Node modules
+node_modules/
+
+# Package manager locks (we use bun)
 package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
-# Don't include the compiled main.js file in the repo.
-# They should be uploaded to GitHub releases instead.
+# ======== Build Outputs ========
+# Obsidian plugin build output
 main.js
+*.js.map
 
-# Exclude sourcemaps
-*.map
+# TypeScript build info
+*.tsbuildinfo
 
-# obsidian
+# Build directories
+dist/
+build/
+out/
+
+# ======== Obsidian ========
+# Obsidian plugin data
 data.json
 
-# Exclude macOS Finder (System Explorer) View States
+# ======== OS Files ========
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
 
-# Development artifacts
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ======== Temporary Files ========
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temp directories
 tmp/
+temp/
+.tmp/
+
+# Backup files
 *.backup
+*.bak
+*.swp
+*.swo
+
+# Patch files
 *.patch
+*.diff
+
+# ======== Development Artifacts ========
+# Refactoring artifacts
 *-refactored.*
 REFACTORING_GUIDE.md
 migrate-to-refactored.sh
-main-refactored.patch
 
-# Testing and development files
-test-*.js
+# Research and planning
 terminal-pty-research.md
 plan.md
 
-# Build artifacts
-*.tsbuildinfo
-
-# IDE files
-*.log
-
+# ======== Environment ========
 .env
+.env.local
+.env.*.local
+
+# ======== Misc ========
+# Repository inventory (temporary)
+repository-inventory.md
