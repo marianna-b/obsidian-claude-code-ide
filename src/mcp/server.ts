@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 import { McpRequest, McpNotification } from "./types";
 import { getClaudeIdeDir } from "../claude-config";
 
@@ -16,14 +17,34 @@ export class McpServer {
 	private connectedClients: Set<WebSocket> = new Set();
 	private config: McpServerConfig;
 	private port: number = 0;
+	private authToken: string = "";
 
 	constructor(config: McpServerConfig) {
 		this.config = config;
 	}
 
 	async start(): Promise<number> {
+		// Generate auth token before starting server
+		this.authToken = crypto.randomUUID();
+		
 		// 0 = choose a random free port
-		this.wss = new WebSocketServer({ port: 0 });
+		this.wss = new WebSocketServer({ 
+			port: 0,
+			// Handle authentication during the upgrade handshake
+			verifyClient: (info, cb) => {
+				const authHeader = info.req.headers['x-claude-code-ide-authorization'] as string;
+				
+				if (!authHeader || authHeader !== this.authToken) {
+					console.debug("[MCP] Rejecting connection - invalid auth token");
+					// Reject with 401 Unauthorized
+					cb(false, 401, 'Unauthorized');
+					return;
+				}
+				
+				console.debug("[MCP] Auth token valid, accepting connection");
+				cb(true);
+			}
+		});
 
 		// address() is cast-safe once server is listening
 		this.port = (this.wss.address() as any).port as number;
@@ -105,6 +126,7 @@ export class McpServer {
 			workspaceFolders: [], // Will be populated by caller
 			ideName: "Obsidian",
 			transport: "ws",
+			authToken: this.authToken, // Add auth token to lock file
 		};
 		fs.writeFileSync(this.lockFilePath, JSON.stringify(lockFileContent));
 	}
