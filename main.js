@@ -12340,6 +12340,81 @@ var IDE_TOOL_DEFINITIONS = [
       type: "object",
       properties: {}
     }
+  },
+  {
+    name: "getLatestSelection",
+    description: "Get the most recent text selection (stub - returns current selection)",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "getOpenEditors",
+    description: "Get all open editor tabs",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "getWorkspaceFolders",
+    description: "Get workspace folder information",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "checkDocumentDirty",
+    description: "Check if a document has unsaved changes",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {
+        documentUri: {
+          type: "string",
+          description: "URI of the document to check"
+        }
+      },
+      required: ["documentUri"]
+    }
+  },
+  {
+    name: "saveDocument",
+    description: "Save a document",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {
+        documentUri: {
+          type: "string",
+          description: "URI of the document to save"
+        }
+      },
+      required: ["documentUri"]
+    }
+  },
+  {
+    name: "executeCode",
+    description: "Execute code (not supported in Obsidian)",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: {
+          type: "string",
+          description: "Code to execute"
+        },
+        language: {
+          type: "string",
+          description: "Programming language"
+        }
+      }
+    }
   }
 ];
 var IdeTools = class {
@@ -12497,23 +12572,41 @@ var IdeTools = class {
         handler: async (args, reply) => {
           try {
             const { old_file_path, new_file_path, new_file_contents, tab_name } = args || {};
-            if (!old_file_path || !new_file_path || !new_file_contents) {
+            let normalizedOldPath;
+            let normalizedNewPath;
+            if (!old_file_path && !new_file_path) {
               return reply({
                 error: formatErrorResponse(
                   ErrorCodes.INVALID_PARAMS,
-                  "Missing required parameters: old_file_path, new_file_path, or new_file_contents"
+                  "At least one of old_file_path or new_file_path must be provided"
                 )
               });
             }
-            console.debug(`[MCP] OpenDiff requested for ${old_file_path} (tab: ${tab_name})`);
-            const normalizedOldPath = old_file_path.startsWith("/") ? old_file_path.substring(1) : old_file_path;
-            const normalizedNewPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
+            if (!old_file_path && new_file_path) {
+              if (new_file_contents === null || new_file_contents === void 0) {
+                return reply({
+                  error: formatErrorResponse(
+                    ErrorCodes.INVALID_PARAMS,
+                    "new_file_contents is required when creating a new file"
+                  )
+                });
+              }
+              normalizedOldPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
+              normalizedNewPath = normalizedOldPath;
+            } else if (old_file_path && !new_file_path) {
+              normalizedOldPath = old_file_path.startsWith("/") ? old_file_path.substring(1) : old_file_path;
+              normalizedNewPath = normalizedOldPath;
+            } else {
+              normalizedOldPath = old_file_path.startsWith("/") ? old_file_path.substring(1) : old_file_path;
+              normalizedNewPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
+            }
+            console.debug(`[MCP] OpenDiff requested - old: ${old_file_path}, new: ${new_file_path}, tab: ${tab_name}`);
             this.app.workspace.detachLeavesOfType(DIFF_VIEW_TYPE);
             const leaf = this.app.workspace.getLeaf("tab");
             const view = new DiffView(leaf, {
               oldFilePath: normalizedOldPath,
               newFilePath: normalizedNewPath,
-              newFileContents: new_file_contents,
+              newFileContents: new_file_contents || "",
               tabName: tab_name || "Diff View"
             });
             leaf.open(view);
@@ -12574,6 +12667,178 @@ var IdeTools = class {
               )
             });
           }
+        }
+      },
+      {
+        name: "getLatestSelection",
+        handler: async (args, reply) => {
+          const getCurrentSelectionImpl = this.createImplementations().find((impl) => impl.name === "getCurrentSelection");
+          if (getCurrentSelectionImpl) {
+            return getCurrentSelectionImpl.handler({}, reply);
+          }
+          return reply({
+            result: formatToolResponse({
+              success: false,
+              message: "No selection history available"
+            })
+          });
+        }
+      },
+      {
+        name: "getOpenEditors",
+        handler: async (args, reply) => {
+          try {
+            const leaves = this.app.workspace.getLeavesOfType("markdown");
+            const activeLeaf = this.app.workspace.activeLeaf;
+            const tabs = leaves.map((leaf) => {
+              const file = leaf.view.file;
+              if (!file) return null;
+              const extension = file.extension || "md";
+              const languageId = extension === "md" ? "markdown" : extension;
+              return {
+                uri: file.path,
+                isActive: leaf === activeLeaf,
+                label: file.basename,
+                languageId,
+                isDirty: false
+                // Obsidian auto-saves, so always false
+              };
+            }).filter((tab) => tab !== null);
+            return reply({
+              result: formatToolResponse({ tabs })
+            });
+          } catch (error) {
+            return reply({
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `Failed to get open editors: ${error.message}`
+              )
+            });
+          }
+        }
+      },
+      {
+        name: "getWorkspaceFolders",
+        handler: async (args, reply) => {
+          var _a;
+          try {
+            const adapter = this.app.vault.adapter;
+            const basePath = ((_a = adapter.getBasePath) == null ? void 0 : _a.call(adapter)) || process.cwd();
+            const vaultName = this.app.vault.getName();
+            const allFiles = this.app.vault.getAllLoadedFiles();
+            const folderPaths = /* @__PURE__ */ new Set();
+            folderPaths.add("");
+            allFiles.forEach((file) => {
+              if (file.path && file.path.includes("/")) {
+                const parts = file.path.split("/");
+                for (let i = 1; i <= parts.length - 1; i++) {
+                  folderPaths.add(parts.slice(0, i).join("/"));
+                }
+              }
+            });
+            const folders = Array.from(folderPaths).sort().map((folderPath) => {
+              const name = folderPath === "" ? vaultName : folderPath.split("/").pop() || folderPath;
+              const fullPath = folderPath === "" ? basePath : `${basePath}/${folderPath}`;
+              return {
+                name,
+                uri: `file://${fullPath}`,
+                path: fullPath
+              };
+            });
+            const response = {
+              success: true,
+              folders,
+              rootPath: basePath
+            };
+            return reply({
+              result: formatToolResponse(response)
+            });
+          } catch (error) {
+            return reply({
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `Failed to get workspace folders: ${error.message}`
+              )
+            });
+          }
+        }
+      },
+      {
+        name: "checkDocumentDirty",
+        handler: async (args, reply) => {
+          try {
+            const { documentUri } = args;
+            if (!documentUri) {
+              return reply({
+                error: formatErrorResponse(
+                  ErrorCodes.INVALID_PARAMS,
+                  "documentUri is required"
+                )
+              });
+            }
+            const response = {
+              success: true,
+              documentUri,
+              isDirty: false,
+              message: "Obsidian auto-saves all changes"
+            };
+            return reply({
+              result: formatToolResponse(response)
+            });
+          } catch (error) {
+            return reply({
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `Failed to check document dirty state: ${error.message}`
+              )
+            });
+          }
+        }
+      },
+      {
+        name: "saveDocument",
+        handler: async (args, reply) => {
+          try {
+            const { documentUri } = args;
+            const normalizedPath = documentUri.startsWith("/") ? documentUri.substring(1) : documentUri;
+            const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+            if (!file) {
+              return reply({
+                error: formatErrorResponse(
+                  ErrorCodes.INVALID_PARAMS,
+                  `Document not found: ${documentUri}`
+                )
+              });
+            }
+            const response = {
+              success: true,
+              documentUri: normalizedPath,
+              message: "Document is already saved (Obsidian auto-saves)"
+            };
+            return reply({
+              result: formatToolResponse(response)
+            });
+          } catch (error) {
+            return reply({
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `Failed to save document: ${error.message}`
+              )
+            });
+          }
+        }
+      },
+      {
+        name: "executeCode",
+        handler: async (args, reply) => {
+          const response = {
+            success: false,
+            error: "Code execution is not supported in Obsidian",
+            note: "Obsidian is a note-taking app and does not support Jupyter notebooks or code execution"
+          };
+          return reply({
+            result: formatToolResponse(response)
+          });
         }
       }
     ];
@@ -13102,6 +13367,24 @@ var ClaudeMcpPlugin = class extends import_obsidian4.Plugin {
     const styleEl = document.createElement("style");
     styleEl.textContent = DIFF_VIEW_STYLES;
     document.head.appendChild(styleEl);
+    this.addCommand({
+      id: "send-selection-to-claude",
+      name: "Send current selection to Claude",
+      checkCallback: (checking) => {
+        const activeLeaf = this.app.workspace.activeLeaf;
+        if (!activeLeaf || activeLeaf.view.getViewType() !== "markdown") {
+          return false;
+        }
+        const editor = activeLeaf.view.editor;
+        if (!editor || !editor.getSelection()) {
+          return false;
+        }
+        if (!checking) {
+          this.sendSelectionToClaude();
+        }
+        return true;
+      }
+    });
     if (this.settings.enableEmbeddedTerminal) {
       await this.initializeTerminalFeatures();
     }
@@ -13196,6 +13479,50 @@ Please configure a different port in Settings \u2192 Community Plugins \u2192 Cl
           8e3
         );
       }
+    }
+  }
+  /* ---------------- selection sharing ---------------- */
+  sendSelectionToClaude() {
+    var _a;
+    try {
+      const activeLeaf = this.app.workspace.activeLeaf;
+      if (!activeLeaf || activeLeaf.view.getViewType() !== "markdown") {
+        new import_obsidian4.Notice("No active markdown editor");
+        return;
+      }
+      const editor = activeLeaf.view.editor;
+      if (!editor) {
+        new import_obsidian4.Notice("Editor not available");
+        return;
+      }
+      const selection = editor.getSelection();
+      if (!selection) {
+        new import_obsidian4.Notice("No text selected");
+        return;
+      }
+      const from = editor.getCursor("from");
+      const to = editor.getCursor("to");
+      const file = this.app.workspace.getActiveFile();
+      if (!file) {
+        new import_obsidian4.Notice("No active file");
+        return;
+      }
+      const notification = {
+        jsonrpc: "2.0",
+        method: "notifications/at_mentioned",
+        params: {
+          filePath: file.path,
+          lineStart: from.line + 1,
+          // Convert to 1-indexed
+          lineEnd: to.line + 1
+          // Convert to 1-indexed
+        }
+      };
+      (_a = this.mcpServer) == null ? void 0 : _a.broadcast(notification);
+      new import_obsidian4.Notice("Selection sent to Claude");
+    } catch (error) {
+      console.error("Failed to send selection:", error);
+      new import_obsidian4.Notice("Failed to send selection to Claude");
     }
   }
   /* ---------------- terminal management ---------------- */

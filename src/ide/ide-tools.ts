@@ -108,6 +108,81 @@ export const IDE_TOOL_DEFINITIONS: ToolDefinition[] = [
 			properties: {},
 		},
 	},
+	{
+		name: "getLatestSelection",
+		description: "Get the most recent text selection (stub - returns current selection)",
+		category: "ide-specific",
+		inputSchema: {
+			type: "object",
+			properties: {},
+		},
+	},
+	{
+		name: "getOpenEditors",
+		description: "Get all open editor tabs",
+		category: "ide-specific",
+		inputSchema: {
+			type: "object",
+			properties: {},
+		},
+	},
+	{
+		name: "getWorkspaceFolders",
+		description: "Get workspace folder information",
+		category: "ide-specific",
+		inputSchema: {
+			type: "object",
+			properties: {},
+		},
+	},
+	{
+		name: "checkDocumentDirty",
+		description: "Check if a document has unsaved changes",
+		category: "ide-specific",
+		inputSchema: {
+			type: "object",
+			properties: {
+				documentUri: {
+					type: "string",
+					description: "URI of the document to check",
+				},
+			},
+			required: ["documentUri"],
+		},
+	},
+	{
+		name: "saveDocument",
+		description: "Save a document",
+		category: "ide-specific",
+		inputSchema: {
+			type: "object",
+			properties: {
+				documentUri: {
+					type: "string",
+					description: "URI of the document to save",
+				},
+			},
+			required: ["documentUri"],
+		},
+	},
+	{
+		name: "executeCode",
+		description: "Execute code (not supported in Obsidian)",
+		category: "ide-specific",
+		inputSchema: {
+			type: "object",
+			properties: {
+				code: {
+					type: "string",
+					description: "Code to execute",
+				},
+				language: {
+					type: "string",
+					description: "Programming language",
+				},
+			},
+		},
+	},
 ];
 
 // IDE-specific tool implementations
@@ -433,6 +508,209 @@ export class IdeTools {
 						),
 					});
 					}
+				},
+			},
+			{
+				name: "getLatestSelection",
+				handler: async (args: any, reply: McpReplyFunction) => {
+					// Stub implementation - just returns current selection
+					// In a full implementation, this would cache selections
+					const getCurrentSelectionImpl = this.createImplementations().find(impl => impl.name === "getCurrentSelection");
+					if (getCurrentSelectionImpl) {
+						return getCurrentSelectionImpl.handler({}, reply);
+					}
+					
+					// Fallback
+					return reply({
+						result: formatToolResponse({
+							success: false,
+							message: "No selection history available"
+						}),
+					});
+				},
+			},
+			{
+				name: "getOpenEditors",
+				handler: async (args: any, reply: McpReplyFunction) => {
+					try {
+						// Get all open markdown leaves
+						const leaves = this.app.workspace.getLeavesOfType('markdown');
+						const activeLeaf = this.app.workspace.activeLeaf;
+						
+						const tabs = leaves.map(leaf => {
+							const file = (leaf.view as any).file;
+							if (!file) return null;
+							
+							const extension = file.extension || 'md';
+							const languageId = extension === 'md' ? 'markdown' : extension;
+							
+							return {
+								uri: file.path,
+								isActive: leaf === activeLeaf,
+								label: file.basename,
+								languageId: languageId,
+								isDirty: false // Obsidian auto-saves, so always false
+							};
+						}).filter(tab => tab !== null);
+						
+						return reply({
+							result: formatToolResponse({ tabs }),
+						});
+					} catch (error) {
+						return reply({
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`Failed to get open editors: ${error.message}`
+							),
+						});
+					}
+				},
+			},
+			{
+				name: "getWorkspaceFolders",
+				handler: async (args: any, reply: McpReplyFunction) => {
+					try {
+						const adapter = this.app.vault.adapter;
+						const basePath = (adapter as any).getBasePath?.() || process.cwd();
+						const vaultName = this.app.vault.getName();
+						
+						// Get all folders in the vault
+						const allFiles = this.app.vault.getAllLoadedFiles();
+						const folderPaths = new Set<string>();
+						
+						// Add root folder
+						folderPaths.add('');
+						
+						// Collect all folder paths
+						allFiles.forEach(file => {
+							if (file.path && file.path.includes('/')) {
+								// Add all parent folders
+								const parts = file.path.split('/');
+								for (let i = 1; i <= parts.length - 1; i++) {
+									folderPaths.add(parts.slice(0, i).join('/'));
+								}
+							}
+						});
+						
+						// Convert to array and create folder objects
+						const folders = Array.from(folderPaths).sort().map(folderPath => {
+							const name = folderPath === '' ? vaultName : folderPath.split('/').pop() || folderPath;
+							const fullPath = folderPath === '' ? basePath : `${basePath}/${folderPath}`;
+							return {
+								name: name,
+								uri: `file://${fullPath}`,
+								path: fullPath
+							};
+						});
+						
+						const response = {
+							success: true,
+							folders: folders,
+							rootPath: basePath
+						};
+						
+						return reply({
+							result: formatToolResponse(response),
+						});
+					} catch (error) {
+						return reply({
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`Failed to get workspace folders: ${error.message}`
+							),
+						});
+					}
+				},
+			},
+			{
+				name: "checkDocumentDirty",
+				handler: async (args: any, reply: McpReplyFunction) => {
+					try {
+						const { documentUri } = args;
+						
+						if (!documentUri) {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INVALID_PARAMS,
+									"documentUri is required"
+								),
+							});
+						}
+						
+						// Obsidian auto-saves, so documents are never dirty
+						const response = {
+							success: true,
+							documentUri: documentUri,
+							isDirty: false,
+							message: "Obsidian auto-saves all changes"
+						};
+						
+						return reply({
+							result: formatToolResponse(response),
+						});
+					} catch (error) {
+						return reply({
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`Failed to check document dirty state: ${error.message}`
+							),
+						});
+					}
+				},
+			},
+			{
+				name: "saveDocument",
+				handler: async (args: any, reply: McpReplyFunction) => {
+					try {
+						const { documentUri } = args;
+						
+						// Normalize the path
+						const normalizedPath = documentUri.startsWith("/") ? documentUri.substring(1) : documentUri;
+						
+						// Check if file exists
+						const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+						if (!file) {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INVALID_PARAMS,
+									`Document not found: ${documentUri}`
+								),
+							});
+						}
+						
+						// Obsidian auto-saves, so just return success
+						const response = {
+							success: true,
+							documentUri: normalizedPath,
+							message: "Document is already saved (Obsidian auto-saves)"
+						};
+						
+						return reply({
+							result: formatToolResponse(response),
+						});
+					} catch (error) {
+						return reply({
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`Failed to save document: ${error.message}`
+							),
+						});
+					}
+				},
+			},
+			{
+				name: "executeCode",
+				handler: async (args: any, reply: McpReplyFunction) => {
+					// Not supported in Obsidian
+					const response = {
+						success: false,
+						error: "Code execution is not supported in Obsidian",
+						note: "Obsidian is a note-taking app and does not support Jupyter notebooks or code execution"
+					};
+					
+					return reply({
+						result: formatToolResponse(response),
+					});
 				},
 			},
 		];

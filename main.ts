@@ -54,6 +54,28 @@ export default class ClaudeMcpPlugin extends Plugin {
 		styleEl.textContent = DIFF_VIEW_STYLES;
 		document.head.appendChild(styleEl);
 
+		// Add command to send selection to Claude
+		this.addCommand({
+			id: 'send-selection-to-claude',
+			name: 'Send current selection to Claude',
+			checkCallback: (checking: boolean) => {
+				const activeLeaf = this.app.workspace.activeLeaf;
+				if (!activeLeaf || activeLeaf.view.getViewType() !== 'markdown') {
+					return false;
+				}
+				
+				const editor = (activeLeaf.view as any).editor;
+				if (!editor || !editor.getSelection()) {
+					return false;
+				}
+				
+				if (!checking) {
+					this.sendSelectionToClaude();
+				}
+				return true;
+			}
+		});
+
 		// Conditionally initialize terminal features (lazy-loaded to save resources)
 		if (this.settings.enableEmbeddedTerminal) {
 			await this.initializeTerminalFeatures();
@@ -191,6 +213,58 @@ export default class ClaudeMcpPlugin extends Plugin {
 					8000
 				);
 			}
+		}
+	}
+
+	/* ---------------- selection sharing ---------------- */
+
+	private sendSelectionToClaude(): void {
+		try {
+			const activeLeaf = this.app.workspace.activeLeaf;
+			if (!activeLeaf || activeLeaf.view.getViewType() !== 'markdown') {
+				new Notice('No active markdown editor');
+				return;
+			}
+
+			const editor = (activeLeaf.view as any).editor;
+			if (!editor) {
+				new Notice('Editor not available');
+				return;
+			}
+
+			const selection = editor.getSelection();
+			if (!selection) {
+				new Notice('No text selected');
+				return;
+			}
+
+			// Get cursor positions
+			const from = editor.getCursor('from');
+			const to = editor.getCursor('to');
+			
+			// Get the file path
+			const file = this.app.workspace.getActiveFile();
+			if (!file) {
+				new Notice('No active file');
+				return;
+			}
+
+			// Send notification via WebSocket
+			const notification = {
+				jsonrpc: "2.0" as const,
+				method: "notifications/at_mentioned",
+				params: {
+					filePath: file.path,
+					lineStart: from.line + 1, // Convert to 1-indexed
+					lineEnd: to.line + 1,     // Convert to 1-indexed
+				}
+			};
+
+			this.mcpServer?.broadcast(notification);
+			new Notice('Selection sent to Claude');
+		} catch (error) {
+			console.error('Failed to send selection:', error);
+			new Notice('Failed to send selection to Claude');
 		}
 	}
 
