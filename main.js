@@ -11599,6 +11599,15 @@ var IDE_TOOL_DEFINITIONS = [
     }
   },
   {
+    name: "getCurrentSelection",
+    description: "Get the currently selected text in the active editor",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
     name: "openDiff",
     description: "Open a diff view (stub implementation for Obsidian compatibility)",
     category: "ide-specific",
@@ -11735,6 +11744,73 @@ var IdeTools = class {
               error: formatErrorResponse(
                 ErrorCodes.INTERNAL_ERROR,
                 `Failed to open file: ${error.message}`
+              )
+            });
+          }
+        }
+      },
+      {
+        name: "getCurrentSelection",
+        handler: async (args, reply) => {
+          try {
+            const activeLeaf = this.app.workspace.activeLeaf;
+            if (!activeLeaf) {
+              const response2 = {
+                success: false,
+                message: "No active editor"
+              };
+              return reply({
+                result: formatToolResponse(response2)
+              });
+            }
+            const view = activeLeaf.view;
+            if (view.getViewType() !== "markdown") {
+              const response2 = {
+                success: false,
+                message: "Active view is not a text editor"
+              };
+              return reply({
+                result: formatToolResponse(response2)
+              });
+            }
+            const editor = view.editor;
+            if (!editor) {
+              const response2 = {
+                success: false,
+                message: "Editor not available"
+              };
+              return reply({
+                result: formatToolResponse(response2)
+              });
+            }
+            const selectedText = editor.getSelection();
+            const from = editor.getCursor("from");
+            const to = editor.getCursor("to");
+            const file = this.app.workspace.getActiveFile();
+            const filePath = file ? file.path : null;
+            const response = {
+              success: true,
+              text: selectedText || "",
+              filePath,
+              selection: {
+                start: {
+                  line: from.line,
+                  character: from.ch
+                },
+                end: {
+                  line: to.line,
+                  character: to.ch
+                }
+              }
+            };
+            return reply({
+              result: formatToolResponse(response)
+            });
+          } catch (error) {
+            return reply({
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `Failed to get selection: ${error.message}`
               )
             });
           }

@@ -26,6 +26,8 @@ describe("IdeTools", () => {
 			getLine: jest.fn(),
 			setSelection: jest.fn(),
 			scrollIntoView: jest.fn(),
+			getSelection: jest.fn(),
+			getCursor: jest.fn(),
 		};
 
 		// Create mock view
@@ -258,6 +260,174 @@ describe("IdeTools", () => {
 				error: formatErrorResponse(
 					ErrorCodes.INTERNAL_ERROR,
 					`Failed to open file: ${errorMessage}`
+				),
+			});
+		});
+	});
+
+	describe("getCurrentSelection", () => {
+		const getCurrentSelectionImpl = () => {
+			const implementations = ideTools.createImplementations();
+			return implementations.find(impl => impl.name === "getCurrentSelection")!;
+		};
+
+		it("should return selected text with cursor positions", async () => {
+			const selectedText = "Hello, world!";
+			const filePath = "test.md";
+			mockEditor.getSelection.mockReturnValue(selectedText);
+			mockEditor.getCursor.mockImplementation((type: string) => {
+				if (type === 'from') return { line: 1, ch: 5 };
+				if (type === 'to') return { line: 1, ch: 18 };
+			});
+			app.workspace.getActiveFile = jest.fn().mockReturnValue({ path: filePath } as TFile);
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				result: formatToolResponse({
+					success: true,
+					text: selectedText,
+					filePath: filePath,
+					selection: {
+						start: { line: 1, character: 5 },
+						end: { line: 1, character: 18 }
+					}
+				}),
+			});
+		});
+
+		it("should handle empty selection (just cursor position)", async () => {
+			const filePath = "test.md";
+			mockEditor.getSelection.mockReturnValue("");
+			mockEditor.getCursor.mockImplementation((type: string) => {
+				return { line: 2, ch: 10 }; // Same position for both from and to
+			});
+			app.workspace.getActiveFile = jest.fn().mockReturnValue({ path: filePath } as TFile);
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				result: formatToolResponse({
+					success: true,
+					text: "",
+					filePath: filePath,
+					selection: {
+						start: { line: 2, character: 10 },
+						end: { line: 2, character: 10 }
+					}
+				}),
+			});
+		});
+
+		it("should handle no active editor", async () => {
+			app.workspace.activeLeaf = null;
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				result: formatToolResponse({
+					success: false,
+					message: "No active editor"
+				}),
+			});
+		});
+
+		it("should handle non-markdown views", async () => {
+			mockView.getViewType.mockReturnValue("canvas");
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				result: formatToolResponse({
+					success: false,
+					message: "Active view is not a text editor"
+				}),
+			});
+		});
+
+		it("should handle view without editor", async () => {
+			mockView.editor = undefined;
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				result: formatToolResponse({
+					success: false,
+					message: "Editor not available"
+				}),
+			});
+			// Restore editor for other tests
+			mockView.editor = mockEditor;
+		});
+
+		it("should handle no active file", async () => {
+			const selectedText = "Some text";
+			mockEditor.getSelection.mockReturnValue(selectedText);
+			mockEditor.getCursor.mockImplementation((type: string) => {
+				return { line: 0, ch: 0 };
+			});
+			app.workspace.getActiveFile = jest.fn().mockReturnValue(null);
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				result: formatToolResponse({
+					success: true,
+					text: selectedText,
+					filePath: null,
+					selection: {
+						start: { line: 0, character: 0 },
+						end: { line: 0, character: 0 }
+					}
+				}),
+			});
+		});
+
+		it("should handle multi-line selection", async () => {
+			const selectedText = "Line 1\nLine 2\nLine 3";
+			const filePath = "multiline.md";
+			mockEditor.getSelection.mockReturnValue(selectedText);
+			mockEditor.getCursor.mockImplementation((type: string) => {
+				if (type === 'from') return { line: 10, ch: 5 };
+				if (type === 'to') return { line: 12, ch: 15 };
+			});
+			app.workspace.getActiveFile = jest.fn().mockReturnValue({ path: filePath } as TFile);
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				result: formatToolResponse({
+					success: true,
+					text: selectedText,
+					filePath: filePath,
+					selection: {
+						start: { line: 10, character: 5 },
+						end: { line: 12, character: 15 }
+					}
+				}),
+			});
+		});
+
+		it("should handle errors gracefully", async () => {
+			const errorMessage = "Editor error";
+			mockEditor.getSelection.mockImplementation(() => {
+				throw new Error(errorMessage);
+			});
+
+			const impl = getCurrentSelectionImpl();
+			await impl.handler({}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				error: formatErrorResponse(
+					ErrorCodes.INTERNAL_ERROR,
+					`Failed to get selection: ${errorMessage}`
 				),
 			});
 		});
