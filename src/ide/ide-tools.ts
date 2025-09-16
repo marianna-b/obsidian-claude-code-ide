@@ -6,6 +6,41 @@ import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/resp
 // IDE-specific tool definitions
 export const IDE_TOOL_DEFINITIONS: ToolDefinition[] = [
 	{
+		name: "openFile",
+		description: "Open a file in Obsidian and optionally select text",
+		category: "ide-specific",
+		inputSchema: {
+			type: "object",
+			properties: {
+				filePath: {
+					type: "string",
+					description: "Path to the file to open",
+				},
+				preview: {
+					type: "boolean",
+					description: "Whether to open in preview mode",
+				},
+				startText: {
+					type: "string",
+					description: "Text to search for to start selection",
+				},
+				endText: {
+					type: "string",
+					description: "Text to search for to end selection",
+				},
+				selectToEndOfLine: {
+					type: "boolean",
+					description: "Whether to extend selection to end of line",
+				},
+				makeFrontmost: {
+					type: "boolean",
+					description: "Whether to return detailed response (false) or simple text (true)",
+				},
+			},
+			required: ["filePath"],
+		},
+	},
+	{
 		name: "openDiff",
 		description: "Open a diff view (stub implementation for Obsidian compatibility)",
 		category: "ide-specific",
@@ -71,6 +106,109 @@ export class IdeTools {
 
 	createImplementations(): ToolImplementation[] {
 		return [
+			{
+				name: "openFile",
+				handler: async (args: any, reply: McpReplyFunction) => {
+					try {
+						const { filePath, preview, startText, endText, selectToEndOfLine, makeFrontmost = true } = args;
+						
+						// Normalize the file path
+						const normalizedPath = filePath.startsWith("/") ? filePath.substring(1) : filePath;
+						
+						// Check if file exists
+						const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+						if (!file || !file.hasOwnProperty('path')) {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INVALID_PARAMS,
+									`File not found: ${filePath}`
+								),
+							});
+						}
+						
+						// Open the file
+						await this.app.workspace.openLinkText(normalizedPath, "", preview || false);
+						
+						// Get the active leaf to access the editor
+						const activeLeaf = this.app.workspace.activeLeaf;
+						
+						// Get the editor if we need to select text
+						if ((startText || endText) && activeLeaf) {
+							const view = activeLeaf.view;
+							if (view.getViewType() === "markdown") {
+								const editor = (view as any).editor;
+								if (editor) {
+									const content = editor.getValue();
+									
+									// Find start position
+									let startPos = editor.posFromIndex(0);
+									if (startText) {
+										const startIndex = content.indexOf(startText);
+										if (startIndex !== -1) {
+											startPos = editor.posFromIndex(startIndex);
+										}
+									}
+									
+									// Find end position
+									let endPos = startPos;
+									if (endText) {
+										const searchStart = editor.indexFromPos(startPos);
+										const endIndex = content.indexOf(endText, searchStart);
+										if (endIndex !== -1) {
+											// Position at the end of the endText
+											endPos = editor.posFromIndex(endIndex + endText.length);
+										} else {
+											// If endText not found, select to end of startText
+											if (startText) {
+												const startIndex = content.indexOf(startText);
+												if (startIndex !== -1) {
+													endPos = editor.posFromIndex(startIndex + startText.length);
+												}
+											}
+										}
+									}
+									
+									// Extend to end of line if requested
+									if (selectToEndOfLine && endPos) {
+										endPos = { line: endPos.line, ch: editor.getLine(endPos.line).length };
+									}
+									
+									// Set the selection
+									editor.setSelection(startPos, endPos);
+									
+									// Scroll to make selection visible
+									editor.scrollIntoView({ from: startPos, to: endPos }, true);
+								}
+							}
+						}
+						
+						// Prepare response based on makeFrontmost
+						if (makeFrontmost) {
+							// Simple text response
+							return reply({
+								result: formatToolResponse(`Opened ${filePath}`),
+							});
+						} else {
+							// Detailed JSON response
+							const response = {
+								success: true,
+								filePath: normalizedPath,
+								message: `Opened ${filePath}`,
+							};
+							return reply({
+								result: formatToolResponse(response),
+							});
+						}
+					} catch (error) {
+						return reply({
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`Failed to open file: ${error.message}`
+							),
+						});
+					}
+				},
+			},
 			{
 				name: "openDiff",
 				handler: async (args: any, reply: McpReplyFunction) => {

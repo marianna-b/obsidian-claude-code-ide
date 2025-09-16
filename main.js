@@ -11564,6 +11564,41 @@ Result: ${serializedResult}`)
 // src/ide/ide-tools.ts
 var IDE_TOOL_DEFINITIONS = [
   {
+    name: "openFile",
+    description: "Open a file in Obsidian and optionally select text",
+    category: "ide-specific",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath: {
+          type: "string",
+          description: "Path to the file to open"
+        },
+        preview: {
+          type: "boolean",
+          description: "Whether to open in preview mode"
+        },
+        startText: {
+          type: "string",
+          description: "Text to search for to start selection"
+        },
+        endText: {
+          type: "string",
+          description: "Text to search for to end selection"
+        },
+        selectToEndOfLine: {
+          type: "boolean",
+          description: "Whether to extend selection to end of line"
+        },
+        makeFrontmost: {
+          type: "boolean",
+          description: "Whether to return detailed response (false) or simple text (true)"
+        }
+      },
+      required: ["filePath"]
+    }
+  },
+  {
     name: "openDiff",
     description: "Open a diff view (stub implementation for Obsidian compatibility)",
     category: "ide-specific",
@@ -11628,6 +11663,83 @@ var IdeTools = class {
   }
   createImplementations() {
     return [
+      {
+        name: "openFile",
+        handler: async (args, reply) => {
+          try {
+            const { filePath, preview, startText, endText, selectToEndOfLine, makeFrontmost = true } = args;
+            const normalizedPath = filePath.startsWith("/") ? filePath.substring(1) : filePath;
+            const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+            if (!file || !file.hasOwnProperty("path")) {
+              return reply({
+                error: formatErrorResponse(
+                  ErrorCodes.INVALID_PARAMS,
+                  `File not found: ${filePath}`
+                )
+              });
+            }
+            await this.app.workspace.openLinkText(normalizedPath, "", preview || false);
+            const activeLeaf = this.app.workspace.activeLeaf;
+            if ((startText || endText) && activeLeaf) {
+              const view = activeLeaf.view;
+              if (view.getViewType() === "markdown") {
+                const editor = view.editor;
+                if (editor) {
+                  const content = editor.getValue();
+                  let startPos = editor.posFromIndex(0);
+                  if (startText) {
+                    const startIndex = content.indexOf(startText);
+                    if (startIndex !== -1) {
+                      startPos = editor.posFromIndex(startIndex);
+                    }
+                  }
+                  let endPos = startPos;
+                  if (endText) {
+                    const searchStart = editor.indexFromPos(startPos);
+                    const endIndex = content.indexOf(endText, searchStart);
+                    if (endIndex !== -1) {
+                      endPos = editor.posFromIndex(endIndex + endText.length);
+                    } else {
+                      if (startText) {
+                        const startIndex = content.indexOf(startText);
+                        if (startIndex !== -1) {
+                          endPos = editor.posFromIndex(startIndex + startText.length);
+                        }
+                      }
+                    }
+                  }
+                  if (selectToEndOfLine && endPos) {
+                    endPos = { line: endPos.line, ch: editor.getLine(endPos.line).length };
+                  }
+                  editor.setSelection(startPos, endPos);
+                  editor.scrollIntoView({ from: startPos, to: endPos }, true);
+                }
+              }
+            }
+            if (makeFrontmost) {
+              return reply({
+                result: formatToolResponse(`Opened ${filePath}`)
+              });
+            } else {
+              const response = {
+                success: true,
+                filePath: normalizedPath,
+                message: `Opened ${filePath}`
+              };
+              return reply({
+                result: formatToolResponse(response)
+              });
+            }
+          } catch (error) {
+            return reply({
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `Failed to open file: ${error.message}`
+              )
+            });
+          }
+        }
+      },
       {
         name: "openDiff",
         handler: async (args, reply) => {
