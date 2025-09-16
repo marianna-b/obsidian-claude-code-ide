@@ -3,6 +3,7 @@ import * as obsidian from "obsidian";
 import { McpReplyFunction } from "../mcp/types";
 import { ToolImplementation, ToolDefinition } from "../shared/tool-registry";
 import { normalizePath } from "../obsidian/utils";
+import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/response-helpers";
 
 // General tool definitions (non-IDE specific)
 export const GENERAL_TOOL_DEFINITIONS: ToolDefinition[] = [
@@ -168,16 +169,11 @@ export class GeneralTools {
 				handler: async (args: any, reply: McpReplyFunction) => {
 					const activeFile = this.app.workspace.getActiveFile();
 					return reply({
-						result: {
-							content: [
-								{
-									type: "text",
-									text: activeFile
-										? `Current file: ${activeFile.path}`
-										: "No file currently active",
-								},
-							],
-						},
+						result: formatToolResponse(
+							activeFile
+								? `Current file: ${activeFile.path}`
+								: "No file currently active"
+						),
 					});
 				},
 			},
@@ -196,16 +192,9 @@ export class GeneralTools {
 					}
 
 					return reply({
-						result: {
-							content: [
-								{
-									type: "text",
-									text: `Files in vault:\n${filteredFiles.join(
-										"\n"
-									)}`,
-								},
-							],
-						},
+						result: formatToolResponse(
+							`Files in vault:\n${filteredFiles.join("\n")}`
+						),
 					});
 				},
 			},
@@ -216,14 +205,14 @@ export class GeneralTools {
 						const { path, view_range } = args || {};
 						if (!path || typeof path !== "string") {
 							return reply({
-								error: { code: -32602, message: "invalid path parameter" },
+								error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid path parameter"),
 							});
 						}
 
 						const normalizedPath = normalizePath(path);
 						if (!normalizedPath) {
 							return reply({
-								error: { code: -32603, message: "invalid file path" },
+								error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path"),
 							});
 						}
 
@@ -251,19 +240,11 @@ export class GeneralTools {
 								.map((file) => file.path);
 
 							return reply({
-								result: {
-									content: [
-										{
-											type: "text",
-											text:
-												dirFiles.length > 0
-													? `Directory contents:\n${dirFiles.join(
-															"\n"
-													  )}`
-													: "Directory is empty or does not exist",
-										},
-									],
-								},
+								result: formatToolResponse(
+									dirFiles.length > 0
+										? `Directory contents:\n${dirFiles.join("\n")}`
+										: "Directory is empty or does not exist"
+								),
 							});
 						} else {
 							// Read file contents
@@ -298,22 +279,15 @@ export class GeneralTools {
 							}
 
 							return reply({
-								result: {
-									content: [
-										{
-											type: "text",
-											text: displayContent,
-										},
-									],
-								},
+								result: formatToolResponse(displayContent),
 							});
 						}
 					} catch (error) {
 						reply({
-							error: {
-								code: -32603,
-								message: `failed to view file/directory: ${error.message}`,
-							},
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`failed to view file/directory: ${error.message}`
+							),
 						});
 					}
 				},
@@ -330,14 +304,14 @@ export class GeneralTools {
 							typeof new_str !== "string"
 						) {
 							return reply({
-								error: { code: -32602, message: "invalid parameters" },
+								error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid parameters"),
 							});
 						}
 
 						const normalizedPath = normalizePath(path);
 						if (!normalizedPath) {
 							return reply({
-								error: { code: -32603, message: "invalid file path" },
+								error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path"),
 							});
 						}
 
@@ -347,17 +321,17 @@ export class GeneralTools {
 						const matches = content.split(old_str).length - 1;
 						if (matches === 0) {
 							return reply({
-								error: {
-									code: -32603,
-									message: "No match found for replacement text",
-								},
+								error: formatErrorResponse(
+									ErrorCodes.INTERNAL_ERROR,
+									"No match found for replacement text"
+								),
 							});
 						} else if (matches > 1) {
 							return reply({
-								error: {
-									code: -32603,
-									message: `Found ${matches} matches for replacement text. Please provide more specific text to match exactly one location.`,
-								},
+								error: formatErrorResponse(
+									ErrorCodes.INTERNAL_ERROR,
+									`Found ${matches} matches for replacement text. Please provide more specific text to match exactly one location.`
+								),
 							});
 						}
 
@@ -365,21 +339,14 @@ export class GeneralTools {
 						await this.app.vault.adapter.write(normalizedPath, newContent);
 
 						return reply({
-							result: {
-								content: [
-									{
-										type: "text",
-										text: "Successfully replaced text at exactly one location.",
-									},
-								],
-							},
+							result: formatToolResponse("Successfully replaced text at exactly one location."),
 						});
 					} catch (error) {
 						reply({
-							error: {
-								code: -32603,
-								message: `failed to replace text: ${error.message}`,
-							},
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`failed to replace text: ${error.message}`
+							),
 						});
 					}
 				},
@@ -395,14 +362,14 @@ export class GeneralTools {
 							typeof file_text !== "string"
 						) {
 							return reply({
-								error: { code: -32602, message: "invalid parameters" },
+								error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid parameters"),
 							});
 						}
 
 						const normalizedPath = normalizePath(path);
 						if (!normalizedPath) {
 							return reply({
-								error: { code: -32603, message: "invalid file path" },
+								error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path"),
 							});
 						}
 
@@ -423,21 +390,14 @@ export class GeneralTools {
 						await this.app.vault.adapter.write(normalizedPath, file_text);
 
 						return reply({
-							result: {
-								content: [
-									{
-										type: "text",
-										text: `Successfully created file: ${path}`,
-									},
-								],
-							},
+							result: formatToolResponse(`Successfully created file: ${path}`),
 						});
 					} catch (error) {
 						reply({
-							error: {
-								code: -32603,
-								message: `failed to create file: ${error.message}`,
-							},
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`failed to create file: ${error.message}`
+							),
 						});
 					}
 				},
@@ -454,14 +414,14 @@ export class GeneralTools {
 							typeof new_str !== "string"
 						) {
 							return reply({
-								error: { code: -32602, message: "invalid parameters" },
+								error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid parameters"),
 							});
 						}
 
 						const normalizedPath = normalizePath(path);
 						if (!normalizedPath) {
 							return reply({
-								error: { code: -32603, message: "invalid file path" },
+								error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path"),
 							});
 						}
 
@@ -471,10 +431,10 @@ export class GeneralTools {
 						// Validate insert_line
 						if (insert_line < 0 || insert_line > lines.length) {
 							return reply({
-								error: {
-									code: -32603,
-									message: `Invalid insert_line ${insert_line}. Must be between 0 and ${lines.length}`,
-								},
+								error: formatErrorResponse(
+									ErrorCodes.INTERNAL_ERROR,
+									`Invalid insert_line ${insert_line}. Must be between 0 and ${lines.length}`
+								),
 							});
 						}
 
@@ -486,21 +446,14 @@ export class GeneralTools {
 						await this.app.vault.adapter.write(normalizedPath, newContent);
 
 						return reply({
-							result: {
-								content: [
-									{
-										type: "text",
-										text: `Successfully inserted text at line ${insert_line} in ${path}`,
-									},
-								],
-							},
+							result: formatToolResponse(`Successfully inserted text at line ${insert_line} in ${path}`),
 						});
 					} catch (error) {
 						reply({
-							error: {
-								code: -32603,
-								message: `failed to insert text: ${error.message}`,
-							},
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`failed to insert text: ${error.message}`
+							),
 						});
 					}
 				},
@@ -512,11 +465,10 @@ export class GeneralTools {
 						const { functionBody } = args || {};
 						if (!functionBody || typeof functionBody !== "string") {
 							return reply({
-								error: {
-									code: -32602,
-									message:
-										"functionBody parameter is required and must be a string",
-								},
+								error: formatErrorResponse(
+									ErrorCodes.INVALID_PARAMS,
+									"functionBody parameter is required and must be a string"
+								),
 							});
 						}
 
@@ -545,23 +497,14 @@ export class GeneralTools {
 						}
 
 						return reply({
-							result: {
-								content: [
-									{
-										type: "text",
-										text: `Function executed successfully.\nResult: ${serializedResult}`,
-									},
-								],
-							},
+							result: formatToolResponse(`Function executed successfully.\nResult: ${serializedResult}`),
 						});
 					} catch (error) {
 						reply({
-							error: {
-								code: -32603,
-								message: `Error executing function: ${
-									error.message || error
-								}`,
-							},
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`Error executing function: ${error.message || error}`
+							),
 						});
 					}
 				},

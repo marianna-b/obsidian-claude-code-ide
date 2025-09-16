@@ -11127,6 +11127,29 @@ var ToolRegistry = class {
 
 // src/tools/general-tools.ts
 var obsidian = __toESM(require("obsidian"));
+
+// src/mcp/response-helpers.ts
+function formatToolResponse(data) {
+  return {
+    content: [{
+      type: "text",
+      text: typeof data === "string" ? data : JSON.stringify(data)
+    }]
+  };
+}
+function formatErrorResponse(code, message) {
+  return {
+    code,
+    message
+  };
+}
+var ErrorCodes = {
+  INVALID_PARAMS: -32602,
+  INTERNAL_ERROR: -32603,
+  METHOD_NOT_FOUND: -32601
+};
+
+// src/tools/general-tools.ts
 var GENERAL_TOOL_DEFINITIONS = [
   {
     name: "get_current_file",
@@ -11278,14 +11301,9 @@ var GeneralTools = class {
         handler: async (args, reply) => {
           const activeFile = this.app.workspace.getActiveFile();
           return reply({
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: activeFile ? `Current file: ${activeFile.path}` : "No file currently active"
-                }
-              ]
-            }
+            result: formatToolResponse(
+              activeFile ? `Current file: ${activeFile.path}` : "No file currently active"
+            )
           });
         }
       },
@@ -11302,17 +11320,10 @@ var GeneralTools = class {
             );
           }
           return reply({
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: `Files in vault:
-${filteredFiles.join(
-                    "\n"
-                  )}`
-                }
-              ]
-            }
+            result: formatToolResponse(
+              `Files in vault:
+${filteredFiles.join("\n")}`
+            )
           });
         }
       },
@@ -11323,13 +11334,13 @@ ${filteredFiles.join(
             const { path: path3, view_range } = args || {};
             if (!path3 || typeof path3 !== "string") {
               return reply({
-                error: { code: -32602, message: "invalid path parameter" }
+                error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid path parameter")
               });
             }
             const normalizedPath = normalizePath(path3);
             if (!normalizedPath) {
               return reply({
-                error: { code: -32603, message: "invalid file path" }
+                error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path")
               });
             }
             const allFiles = this.app.vault.getFiles();
@@ -11342,17 +11353,10 @@ ${filteredFiles.join(
                 return file.path.startsWith(dirPath) && !file.path.substring(dirPath.length).includes("/");
               }).map((file) => file.path);
               return reply({
-                result: {
-                  content: [
-                    {
-                      type: "text",
-                      text: dirFiles.length > 0 ? `Directory contents:
-${dirFiles.join(
-                        "\n"
-                      )}` : "Directory is empty or does not exist"
-                    }
-                  ]
-                }
+                result: formatToolResponse(
+                  dirFiles.length > 0 ? `Directory contents:
+${dirFiles.join("\n")}` : "Directory is empty or does not exist"
+                )
               });
             } else {
               const content = await this.app.vault.adapter.read(
@@ -11369,22 +11373,15 @@ ${dirFiles.join(
                 displayContent = content.split("\n").map((line, index) => `${index + 1}: ${line}`).join("\n");
               }
               return reply({
-                result: {
-                  content: [
-                    {
-                      type: "text",
-                      text: displayContent
-                    }
-                  ]
-                }
+                result: formatToolResponse(displayContent)
               });
             }
           } catch (error) {
             reply({
-              error: {
-                code: -32603,
-                message: `failed to view file/directory: ${error.message}`
-              }
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `failed to view file/directory: ${error.message}`
+              )
             });
           }
         }
@@ -11396,50 +11393,43 @@ ${dirFiles.join(
             const { path: path3, old_str, new_str } = args || {};
             if (!path3 || typeof path3 !== "string" || typeof old_str !== "string" || typeof new_str !== "string") {
               return reply({
-                error: { code: -32602, message: "invalid parameters" }
+                error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid parameters")
               });
             }
             const normalizedPath = normalizePath(path3);
             if (!normalizedPath) {
               return reply({
-                error: { code: -32603, message: "invalid file path" }
+                error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path")
               });
             }
             const content = await this.app.vault.adapter.read(normalizedPath);
             const matches = content.split(old_str).length - 1;
             if (matches === 0) {
               return reply({
-                error: {
-                  code: -32603,
-                  message: "No match found for replacement text"
-                }
+                error: formatErrorResponse(
+                  ErrorCodes.INTERNAL_ERROR,
+                  "No match found for replacement text"
+                )
               });
             } else if (matches > 1) {
               return reply({
-                error: {
-                  code: -32603,
-                  message: `Found ${matches} matches for replacement text. Please provide more specific text to match exactly one location.`
-                }
+                error: formatErrorResponse(
+                  ErrorCodes.INTERNAL_ERROR,
+                  `Found ${matches} matches for replacement text. Please provide more specific text to match exactly one location.`
+                )
               });
             }
             const newContent = content.replace(old_str, new_str);
             await this.app.vault.adapter.write(normalizedPath, newContent);
             return reply({
-              result: {
-                content: [
-                  {
-                    type: "text",
-                    text: "Successfully replaced text at exactly one location."
-                  }
-                ]
-              }
+              result: formatToolResponse("Successfully replaced text at exactly one location.")
             });
           } catch (error) {
             reply({
-              error: {
-                code: -32603,
-                message: `failed to replace text: ${error.message}`
-              }
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `failed to replace text: ${error.message}`
+              )
             });
           }
         }
@@ -11451,13 +11441,13 @@ ${dirFiles.join(
             const { path: path3, file_text } = args || {};
             if (!path3 || typeof path3 !== "string" || typeof file_text !== "string") {
               return reply({
-                error: { code: -32602, message: "invalid parameters" }
+                error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid parameters")
               });
             }
             const normalizedPath = normalizePath(path3);
             if (!normalizedPath) {
               return reply({
-                error: { code: -32603, message: "invalid file path" }
+                error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path")
               });
             }
             try {
@@ -11472,21 +11462,14 @@ ${dirFiles.join(
             }
             await this.app.vault.adapter.write(normalizedPath, file_text);
             return reply({
-              result: {
-                content: [
-                  {
-                    type: "text",
-                    text: `Successfully created file: ${path3}`
-                  }
-                ]
-              }
+              result: formatToolResponse(`Successfully created file: ${path3}`)
             });
           } catch (error) {
             reply({
-              error: {
-                code: -32603,
-                message: `failed to create file: ${error.message}`
-              }
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `failed to create file: ${error.message}`
+              )
             });
           }
         }
@@ -11498,23 +11481,23 @@ ${dirFiles.join(
             const { path: path3, insert_line, new_str } = args || {};
             if (!path3 || typeof path3 !== "string" || typeof insert_line !== "number" || typeof new_str !== "string") {
               return reply({
-                error: { code: -32602, message: "invalid parameters" }
+                error: formatErrorResponse(ErrorCodes.INVALID_PARAMS, "invalid parameters")
               });
             }
             const normalizedPath = normalizePath(path3);
             if (!normalizedPath) {
               return reply({
-                error: { code: -32603, message: "invalid file path" }
+                error: formatErrorResponse(ErrorCodes.INTERNAL_ERROR, "invalid file path")
               });
             }
             const content = await this.app.vault.adapter.read(normalizedPath);
             const lines = content.split("\n");
             if (insert_line < 0 || insert_line > lines.length) {
               return reply({
-                error: {
-                  code: -32603,
-                  message: `Invalid insert_line ${insert_line}. Must be between 0 and ${lines.length}`
-                }
+                error: formatErrorResponse(
+                  ErrorCodes.INTERNAL_ERROR,
+                  `Invalid insert_line ${insert_line}. Must be between 0 and ${lines.length}`
+                )
               });
             }
             const newLines = new_str.split("\n");
@@ -11522,21 +11505,14 @@ ${dirFiles.join(
             const newContent = lines.join("\n");
             await this.app.vault.adapter.write(normalizedPath, newContent);
             return reply({
-              result: {
-                content: [
-                  {
-                    type: "text",
-                    text: `Successfully inserted text at line ${insert_line} in ${path3}`
-                  }
-                ]
-              }
+              result: formatToolResponse(`Successfully inserted text at line ${insert_line} in ${path3}`)
             });
           } catch (error) {
             reply({
-              error: {
-                code: -32603,
-                message: `failed to insert text: ${error.message}`
-              }
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `failed to insert text: ${error.message}`
+              )
             });
           }
         }
@@ -11548,10 +11524,10 @@ ${dirFiles.join(
             const { functionBody } = args || {};
             if (!functionBody || typeof functionBody !== "string") {
               return reply({
-                error: {
-                  code: -32602,
-                  message: "functionBody parameter is required and must be a string"
-                }
+                error: formatErrorResponse(
+                  ErrorCodes.INVALID_PARAMS,
+                  "functionBody parameter is required and must be a string"
+                )
               });
             }
             const fn = new Function("app", "obsidian", functionBody);
@@ -11567,22 +11543,15 @@ ${dirFiles.join(
               serializedResult = `[Non-serializable result: ${typeof result}]`;
             }
             return reply({
-              result: {
-                content: [
-                  {
-                    type: "text",
-                    text: `Function executed successfully.
-Result: ${serializedResult}`
-                  }
-                ]
-              }
+              result: formatToolResponse(`Function executed successfully.
+Result: ${serializedResult}`)
             });
           } catch (error) {
             reply({
-              error: {
-                code: -32603,
-                message: `Error executing function: ${error.message || error}`
-              }
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `Error executing function: ${error.message || error}`
+              )
             });
           }
         }
@@ -11664,14 +11633,7 @@ var IdeTools = class {
           const { old_file_path, new_file_path, new_file_contents, tab_name } = args || {};
           console.debug(`[MCP] OpenDiff requested for ${old_file_path} (tab: ${tab_name})`);
           return reply({
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: "Diff view opened in Obsidian (no visual diff available)"
-                }
-              ]
-            }
+            result: formatToolResponse("Diff view opened in Obsidian (no visual diff available)")
           });
         }
       },
@@ -11681,14 +11643,7 @@ var IdeTools = class {
           const { tab_name } = args || {};
           console.debug(`[MCP] CloseTab requested for ${tab_name}`);
           return reply({
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: "Tab closed successfully"
-                }
-              ]
-            }
+            result: formatToolResponse("Tab closed successfully")
           });
         }
       },
@@ -11697,14 +11652,7 @@ var IdeTools = class {
         handler: async (args, reply) => {
           console.debug(`[MCP] CloseAllDiffTabs requested`);
           return reply({
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: "All diff tabs closed successfully"
-                }
-              ]
-            }
+            result: formatToolResponse("All diff tabs closed successfully")
           });
         }
       },
@@ -11720,17 +11668,15 @@ var IdeTools = class {
               timestamp: (/* @__PURE__ */ new Date()).toISOString()
             };
             return reply({
-              result: {
-                diagnostics: [],
-                systemInfo: diagnostics
-              }
+              result: formatToolResponse([])
+              // Empty array as Obsidian has no LSP diagnostics
             });
           } catch (error) {
             reply({
-              error: {
-                code: -32603,
-                message: `failed to get diagnostics: ${error.message}`
-              }
+              error: formatErrorResponse(
+                ErrorCodes.INTERNAL_ERROR,
+                `failed to get diagnostics: ${error.message}`
+              )
             });
           }
         }

@@ -1,6 +1,7 @@
 import { App } from "obsidian";
 import { McpReplyFunction } from "../mcp/types";
 import { ToolImplementation, ToolDefinition } from "../shared/tool-registry";
+import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/response-helpers";
 
 // IDE-specific tool definitions
 export const IDE_TOOL_DEFINITIONS: ToolDefinition[] = [
@@ -80,14 +81,7 @@ export class IdeTools {
 					console.debug(`[MCP] OpenDiff requested for ${old_file_path} (tab: ${tab_name})`);
 					
 					return reply({
-						result: {
-							content: [
-								{
-									type: "text",
-									text: "Diff view opened in Obsidian (no visual diff available)",
-								},
-							],
-						},
+						result: formatToolResponse("Diff view opened in Obsidian (no visual diff available)"),
 					});
 				},
 			},
@@ -101,14 +95,7 @@ export class IdeTools {
 					console.debug(`[MCP] CloseTab requested for ${tab_name}`);
 					
 					return reply({
-						result: {
-							content: [
-								{
-									type: "text",
-									text: "Tab closed successfully",
-								},
-							],
-						},
+						result: formatToolResponse("Tab closed successfully"),
 					});
 				},
 			},
@@ -120,14 +107,7 @@ export class IdeTools {
 					console.debug(`[MCP] CloseAllDiffTabs requested`);
 					
 					return reply({
-						result: {
-							content: [
-								{
-									type: "text",
-									text: "All diff tabs closed successfully",
-								},
-							],
-						},
+						result: formatToolResponse("All diff tabs closed successfully"),
 					});
 				},
 			},
@@ -144,19 +124,17 @@ export class IdeTools {
 							timestamp: new Date().toISOString(),
 						};
 
+						// Protocol expects JSON-stringified array of diagnostics
 						return reply({
-							result: {
-								diagnostics: [],
-								systemInfo: diagnostics,
-							},
+							result: formatToolResponse([]), // Empty array as Obsidian has no LSP diagnostics
 						});
 					} catch (error) {
-						reply({
-							error: {
-								code: -32603,
-								message: `failed to get diagnostics: ${error.message}`,
-							},
-						});
+					reply({
+						error: formatErrorResponse(
+							ErrorCodes.INTERNAL_ERROR,
+							`failed to get diagnostics: ${error.message}`
+						),
+					});
 					}
 				},
 			},
