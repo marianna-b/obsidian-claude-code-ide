@@ -465,23 +465,54 @@ describe("IdeTools", () => {
 		});
 	});
 
-	describe("Stub implementations", () => {
-		it("should handle openDiff with success response", async () => {
+	describe("openDiff", () => {
+		const openDiffImpl = () => {
 			const implementations = ideTools.createImplementations();
-			const impl = implementations.find(impl => impl.name === "openDiff")!;
+			return implementations.find(impl => impl.name === "openDiff")!;
+		};
+
+		it("should return error when no file paths provided", async () => {
+			const impl = openDiffImpl();
 			
 			await impl.handler({
-				old_file_path: "old.md",
-				new_file_path: "new.md",
-				new_file_contents: "content",
-				tab_name: "diff",
+				// no old_file_path or new_file_path
+				new_file_contents: "some content"
 			}, mockReply);
 
 			expect(mockReply).toHaveBeenCalledWith({
-				result: formatToolResponse("Diff view opened in Obsidian (no visual diff available)"),
+				error: formatErrorResponse(
+					ErrorCodes.INVALID_PARAMS,
+					"At least one of old_file_path or new_file_path must be provided"
+				),
 			});
 		});
 
+		it("should return error when creating new file without contents", async () => {
+			const impl = openDiffImpl();
+			
+			await impl.handler({
+				new_file_path: "new.md",
+				// missing new_file_contents
+			}, mockReply);
+
+			expect(mockReply).toHaveBeenCalledWith({
+				error: formatErrorResponse(
+					ErrorCodes.INVALID_PARAMS,
+					"new_file_contents is required when creating a new file"
+				),
+			});
+		});
+
+		it("should handle path normalization", async () => {
+			const impl = openDiffImpl();
+			
+			// Note: In a real test, we would mock the DiffView creation and interaction
+			// For now, this test would require more complex mocking of the Obsidian workspace
+			// and DiffView class, which is beyond the scope of a unit test
+		});
+	});
+
+	describe("Stub implementations", () => {
 		it("should handle close_tab with success response", async () => {
 			const implementations = ideTools.createImplementations();
 			const impl = implementations.find(impl => impl.name === "close_tab")!;

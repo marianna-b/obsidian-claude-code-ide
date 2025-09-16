@@ -21,6 +21,7 @@
 	],
 	"license": "MIT",
 	"devDependencies": {
+		"@types/diff": "^5.2.3",
 		"@types/jest": "^29.5.12",
 		"@types/node": "^22.15.30",
 		"@types/ws": "^8.18.1",
@@ -38,6 +39,7 @@
 	"dependencies": {
 		"@xterm/addon-fit": "0.10.0",
 		"@xterm/xterm": "5.5.0",
+		"diff": "^5.2.0",
 		"ws": "^8.18.2"
 	}
 }

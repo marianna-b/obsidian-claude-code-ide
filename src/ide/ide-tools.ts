@@ -2,6 +2,7 @@ import { App } from "obsidian";
 import { McpReplyFunction } from "../mcp/types";
 import { ToolImplementation, ToolDefinition } from "../shared/tool-registry";
 import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/response-helpers";
+import { DiffView, DIFF_VIEW_TYPE } from "./diff-view";
 
 // IDE-specific tool definitions
 export const IDE_TOOL_DEFINITIONS: ToolDefinition[] = [
@@ -303,15 +304,82 @@ export class IdeTools {
 			{
 				name: "openDiff",
 				handler: async (args: any, reply: McpReplyFunction) => {
-					// Claude Code is trying to open a diff view, but Obsidian doesn't have built-in diff functionality
-					// Just acknowledge the request successfully to prevent errors
-					const { old_file_path, new_file_path, new_file_contents, tab_name } = args || {};
-					
-					console.debug(`[MCP] OpenDiff requested for ${old_file_path} (tab: ${tab_name})`);
-					
-					return reply({
-						result: formatToolResponse("Diff view opened in Obsidian (no visual diff available)"),
-					});
+					try {
+						const { old_file_path, new_file_path, new_file_contents, tab_name } = args || {};
+						
+						// Determine the operation type and validate parameters
+						let normalizedOldPath: string;
+						let normalizedNewPath: string;
+						
+						if (!old_file_path && !new_file_path) {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INVALID_PARAMS,
+									"At least one of old_file_path or new_file_path must be provided"
+								),
+							});
+						}
+						
+						// Handle different operation types
+						if (!old_file_path && new_file_path) {
+							// Create new file
+							if (new_file_contents === null || new_file_contents === undefined) {
+								return reply({
+									error: formatErrorResponse(
+										ErrorCodes.INVALID_PARAMS,
+										"new_file_contents is required when creating a new file"
+									),
+								});
+							}
+							normalizedOldPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
+							normalizedNewPath = normalizedOldPath;
+						} else if (old_file_path && !new_file_path) {
+							// Edit or delete existing file
+							normalizedOldPath = old_file_path.startsWith("/") ? old_file_path.substring(1) : old_file_path;
+							normalizedNewPath = normalizedOldPath;
+						} else {
+							// Move/rename or edit with explicit paths
+							normalizedOldPath = old_file_path.startsWith("/") ? old_file_path.substring(1) : old_file_path;
+							normalizedNewPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
+						}
+						
+						console.debug(`[MCP] OpenDiff requested - old: ${old_file_path}, new: ${new_file_path}, tab: ${tab_name}`);
+						
+						// Close any existing diff views
+						this.app.workspace.detachLeavesOfType(DIFF_VIEW_TYPE);
+						
+						// Create a new leaf for the diff view
+						const leaf = this.app.workspace.getLeaf('tab');
+						
+						// Create the view with state
+						const view = new DiffView(leaf, {
+							oldFilePath: normalizedOldPath,
+							newFilePath: normalizedNewPath,
+							newFileContents: new_file_contents || '',
+							tabName: tab_name || 'Diff View'
+						});
+						
+						// Set the view on the leaf
+						leaf.open(view);
+						
+						// Make the leaf active
+						this.app.workspace.setActiveLeaf(leaf, { focus: true });
+						
+						// Wait for user decision
+						const decision = await view.getUserDecision();
+						
+						// Return the decision
+						return reply({
+							result: formatToolResponse(decision),
+						});
+					} catch (error) {
+						return reply({
+							error: formatErrorResponse(
+								ErrorCodes.INTERNAL_ERROR,
+								`Failed to open diff view: ${error.message}`
+							),
+						});
+					}
 				},
 			},
 			{

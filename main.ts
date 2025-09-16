@@ -13,6 +13,7 @@ import {
 	ClaudeCodeSettingTab,
 } from "./src/settings";
 import claudeLogo from "./assets/claude-logo.png";
+import { DiffView, DIFF_VIEW_TYPE, DIFF_VIEW_STYLES } from "./src/ide/diff-view";
 
 export default class ClaudeMcpPlugin extends Plugin {
 	public mcpServer!: McpDualServer;
@@ -33,6 +34,25 @@ export default class ClaudeMcpPlugin extends Plugin {
 				<image href="${claudeLogo}" width="16" height="16" />
 			</svg>`
 		);
+
+		// Register the DiffView
+		this.registerView(
+			DIFF_VIEW_TYPE,
+			(leaf) => {
+				// This will be called with proper state when opened via tool
+				return new DiffView(leaf, {
+					oldFilePath: '',
+					newFilePath: '',
+					newFileContents: '',
+					tabName: 'Diff View'
+				});
+			}
+		);
+
+		// Add CSS for DiffView
+		const styleEl = document.createElement('style');
+		styleEl.textContent = DIFF_VIEW_STYLES;
+		document.head.appendChild(styleEl);
 
 		// Conditionally initialize terminal features (lazy-loaded to save resources)
 		if (this.settings.enableEmbeddedTerminal) {
