@@ -22,7 +22,7 @@ export function formatToolResponse(data: any): ToolResponse {
 	return {
 		content: [{
 			type: "text",
-			text: typeof data === "string" ? data : JSON.stringify(data)
+			text: typeof data === "string" ? data : JSON.stringify(data) ?? "undefined"
 		}]
 	};
 }

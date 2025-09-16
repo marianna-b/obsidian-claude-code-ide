@@ -11130,10 +11130,11 @@ var obsidian = __toESM(require("obsidian"));
 
 // src/mcp/response-helpers.ts
 function formatToolResponse(data) {
+  var _a;
   return {
     content: [{
       type: "text",
-      text: typeof data === "string" ? data : JSON.stringify(data)
+      text: typeof data === "string" ? data : (_a = JSON.stringify(data)) != null ? _a : "undefined"
     }]
   };
 }

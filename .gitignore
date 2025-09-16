@@ -86,6 +86,12 @@ plan.md
 .env.local
 .env.*.local
 
+# ======== Testing ========
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output/
+
 # ======== Misc ========
 # Repository inventory (temporary)
 repository-inventory.md
