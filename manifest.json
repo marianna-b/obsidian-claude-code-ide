@@ -1,10 +1,10 @@
 {
-	"id": "claude-code-mcp",
-	"name": "Claude Code MCP",
+	"id": "obsidian-claude-code-ide",
+	"name": "Claude Code IDE",
+	"version": "1.1.9",
 	"minAppVersion": "1.0.0",
-	"version": "1.1.8",
-	"description": "Connect Claude Code and other AI tools to your notes using Model Context Protocol (MCP).",
-	"author": "iansinnott",
-	"authorUrl": "https://github.com/iansinnott",
+	"description": "Connect Claude Code and other AI tools to your notes using Model Context Protocol (MCP). Based on original work by Ian Sinnott.",
+	"author": "Marianna B (based on work by https://github.com/iansinnott)",
+	"authorUrl": "https://github.com/marianna-b/obsidian-claude-code-ide",
 	"isDesktopOnly": true
 }
