@@ -18,7 +18,7 @@ pnpm-lock.yaml
 
 # ======== Build Outputs ========
 # Obsidian plugin build output
-# main.js is tracked for BRAT compatibility
+main.js
 *.js.map
 
 # TypeScript build info
