@@ -1,4 +1,4 @@
-import { App } from "obsidian";
+import { App, TFile, WorkspaceLeaf } from "obsidian";
 import { McpReplyFunction } from "../mcp/types";
 import { ToolImplementation, ToolDefinition } from "../shared/tool-registry";
 import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/response-helpers";
@@ -418,13 +418,42 @@ export class IdeTools {
 							normalizedNewPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
 						}
 						
-						console.debug(`[MCP] OpenDiff requested - old: ${old_file_path}, new: ${new_file_path}, tab: ${tab_name}`);
+					console.debug(`[MCP] OpenDiff requested - old: ${old_file_path}, new: ${new_file_path}, tab: ${tab_name}`);
+					
+					// Close any existing diff views
+					this.app.workspace.detachLeavesOfType(DIFF_VIEW_TYPE);
+					
+					// Get or open the file being edited to provide context for the diff
+					let leaf: WorkspaceLeaf | null = null;
+					
+					// Try to find a markdown leaf that's already editing the relevant file
+					const fileLeaves = this.app.workspace.getLeavesOfType('markdown');
+					for (const fileLeaf of fileLeaves) {
+						const file = (fileLeaf.view as any).file;
+						if (file && (file.path === normalizedOldPath || file.path === normalizedNewPath)) {
+							leaf = fileLeaf;
+							break;
+						}
+					}
+					
+					// If the file isn't open, try to open it first
+					if (!leaf) {
+						const targetPath = normalizedNewPath || normalizedOldPath;
+						const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
 						
-						// Close any existing diff views
-						this.app.workspace.detachLeavesOfType(DIFF_VIEW_TYPE);
-						
-						// Create a new leaf for the diff view
-						const leaf = this.app.workspace.getLeaf('tab');
+						if (targetFile && targetFile instanceof TFile) {
+							// Open the file in a new leaf (not the terminal)
+							leaf = this.app.workspace.getLeaf('tab');
+							await leaf.openFile(targetFile);
+						} else {
+							// File doesn't exist yet, use most recent markdown leaf or create new
+							if (fileLeaves.length > 0) {
+								leaf = fileLeaves[fileLeaves.length - 1];
+							} else {
+								leaf = this.app.workspace.getLeaf('tab');
+							}
+						}
+					}
 						
 						// Create the view with state
 						const view = new DiffView(leaf, {
