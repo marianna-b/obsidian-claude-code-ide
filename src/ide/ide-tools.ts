@@ -436,22 +436,17 @@ export class IdeTools {
 						}
 					}
 					
-					// If the file isn't open, try to open it first
+					// If the file isn't open, open it in a new tab
 					if (!leaf) {
 						const targetPath = normalizedNewPath || normalizedOldPath;
 						const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
 						
 						if (targetFile && targetFile instanceof TFile) {
-							// Prefer a markdown leaf, fallback to most recent non-terminal leaf
-							if (fileLeaves.length > 0) {
-								leaf = fileLeaves[fileLeaves.length - 1];
-							} else {
-								// No markdown leaves, create a new tab
-								leaf = this.app.workspace.getLeaf('tab');
-							}
+							// File exists, open it in a new tab
+							leaf = this.app.workspace.getLeaf('tab');
 							await leaf.openFile(targetFile);
 						} else {
-							// File doesn't exist yet, prefer markdown leaf or create new
+							// File doesn't exist yet, prefer existing markdown leaf or create new
 							if (fileLeaves.length > 0) {
 								leaf = fileLeaves[fileLeaves.length - 1];
 							} else {
