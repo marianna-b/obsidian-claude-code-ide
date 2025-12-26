@@ -30,6 +30,8 @@ export class ClaudeTerminalView extends ItemView {
 			cursorBlink: true,
 			fontSize: 14,
 			fontFamily: "Monaco, Menlo, 'Ubuntu Mono', monospace",
+			convertEol: false, // Don't convert \n to \r\n, PTY handles this
+			windowsMode: false, // Use Unix line endings
 		});
 		this.fitAddon = new FitAddon();
 		this.terminal.loadAddon(this.fitAddon);
