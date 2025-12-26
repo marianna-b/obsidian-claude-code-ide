@@ -366,7 +366,8 @@ export const DIFF_VIEW_STYLES = `
 .diff-wrapper {
 	display: flex;
 	gap: 10px;
-	min-width: fit-content;
+	width: 100%;
+	height: 100%;
 }
 
 .diff-column {
@@ -375,6 +376,8 @@ export const DIFF_VIEW_STYLES = `
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 }
 
 .diff-column-header {
@@ -389,6 +392,9 @@ export const DIFF_VIEW_STYLES = `
 	font-family: var(--font-monospace);
 	font-size: 0.9em;
 	line-height: 1.4;
+	flex: 1;
+	overflow-y: auto;
+	overflow-x: auto;
 }
 
 .diff-line {
