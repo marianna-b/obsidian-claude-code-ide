@@ -449,8 +449,14 @@ export class IdeTools {
 								leaf = this.app.workspace.getLeaf('tab');
 							}
 						} else {
-							// No markdown tabs, use default
-							leaf = this.app.workspace.getLeaf('tab');
+							// No markdown tabs exist, create a new split in the main workspace
+							const rootLeaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
+							if (rootLeaf) {
+								leaf = this.app.workspace.createLeafBySplit(rootLeaf, 'vertical');
+							} else {
+								// Last resort fallback
+								leaf = this.app.workspace.getLeaf('tab');
+							}
 						}
 					}
 						
