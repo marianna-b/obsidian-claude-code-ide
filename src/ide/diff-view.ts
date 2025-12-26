@@ -372,6 +372,7 @@ export const DIFF_VIEW_STYLES = `
 .diff-column {
 	flex: 1;
 	min-width: 0;
+	max-width: 50%;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px;
 	overflow: hidden;
