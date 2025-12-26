@@ -436,9 +436,22 @@ export class IdeTools {
 						}
 					}
 					
-					// If the file isn't already open, create a new tab
+					// If the file isn't already open, create a new tab in the main workspace
 					if (!leaf) {
-						leaf = this.app.workspace.getLeaf('tab');
+						// Try to use an existing markdown tab's parent to create new tab
+						if (fileLeaves.length > 0) {
+							const referenceLeaf = fileLeaves[0];
+							// Create leaf in the same parent container as markdown tabs
+							const parent = referenceLeaf.parent;
+							if (parent) {
+								leaf = this.app.workspace.createLeafInParent(parent, fileLeaves.length);
+							} else {
+								leaf = this.app.workspace.getLeaf('tab');
+							}
+						} else {
+							// No markdown tabs, use default
+							leaf = this.app.workspace.getLeaf('tab');
+						}
 					}
 						
 						// Create the view with state
