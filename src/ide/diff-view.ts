@@ -416,8 +416,8 @@ export const DIFF_VIEW_STYLES = `
 .diff-line-content {
 	flex: 1;
 	padding: 0 10px;
-	white-space: pre;
-	overflow-x: auto;
+	white-space: pre-wrap;
+	word-wrap: break-word;
 }
 
 .diff-line-added {
