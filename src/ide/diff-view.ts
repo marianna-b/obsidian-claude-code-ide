@@ -281,8 +281,14 @@ export class DiffView extends ItemView {
 				this.resolvePromise('FILE_SAVED');
 			}
 			
-			// Close the view
-			this.close();
+			// Replace diff view with the saved file in the same tab
+			const finalFile = this.app.vault.getAbstractFileByPath(this.state.newFilePath);
+			if (finalFile && finalFile instanceof TFile) {
+				await this.leaf.openFile(finalFile);
+			} else {
+				// File doesn't exist (shouldn't happen after save), close
+				this.close();
+			}
 		} catch (error) {
 			console.error('Failed to save changes:', error);
 			new Notice(`Failed to save changes: ${error.message}`);
