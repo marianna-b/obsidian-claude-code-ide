@@ -61,14 +61,17 @@ export class ClaudeTerminalView extends ItemView {
 		terminalEl.style.height = "100%";
 		terminalEl.style.padding = "8px";
 
-		// Open terminal in DOM
-		this.terminal.open(terminalEl);
+	// Open terminal in DOM
+	this.terminal.open(terminalEl);
+	
+	// Fit terminal to container immediately so shell gets correct size
+	this.fitAddon.fit();
 
-		// Initialize Python detection but defer shell start
-		await this.pythonManager.initialize();
+	// Initialize Python detection but defer shell start
+	await this.pythonManager.initialize();
 
-		// Set up shell process - now includes environment setup
-		await this.startShell();
+	// Set up shell process - now includes environment setup
+	await this.startShell();
 
 		// Add custom key handler for Shift+Enter to insert a newline
 		this.terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
