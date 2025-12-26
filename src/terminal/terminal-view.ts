@@ -245,10 +245,19 @@ export class ClaudeTerminalView extends ItemView {
 			env: this.getTerminalEnv(),
 		});
 
-		// Pipe pseudoterminal to xterm
-		await this.pseudoterminal.pipe(this.terminal);
+	// Pipe pseudoterminal to xterm
+	await this.pseudoterminal.pipe(this.terminal);
+	
+	// Send initial terminal size to PTY immediately
+	if (this.pseudoterminal.resize) {
+		const { cols, rows } = this.terminal;
+		console.debug(`[Terminal] Setting initial PTY size: ${cols}x${rows}`);
+		await this.pseudoterminal.resize(cols, rows).catch((error: unknown) => {
+			console.warn("[Terminal] Initial PTY resize failed:", error);
+		});
+	}
 
-		// Handle exit
+	// Handle exit
 		this.pseudoterminal.onExit
 			.then((exitCode) => {
 				console.debug(`[Terminal] PTY exited with code ${exitCode}`);

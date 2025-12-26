@@ -117,7 +117,8 @@ export class UnixPseudoterminal implements Pseudoterminal {
       const cmdio = shell.stdio[UnixPseudoterminal.CMDIO_FD] as Writable;
       
       if (cmdio) {
-        await writePromise(cmdio, `${columns}x${rows}\n`);
+        // Python script expects format: rows x columns (not columns x rows)
+        await writePromise(cmdio, `${rows}x${columns}\n`);
       }
     } catch (error) {
       console.warn("[Terminal] Resize failed:", error);
