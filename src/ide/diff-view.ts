@@ -367,7 +367,6 @@ export const DIFF_VIEW_STYLES = `
 	display: flex;
 	gap: 10px;
 	width: 100%;
-	height: 100%;
 }
 
 .diff-column {
