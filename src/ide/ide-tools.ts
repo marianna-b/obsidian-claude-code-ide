@@ -442,17 +442,19 @@ export class IdeTools {
 						const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
 						
 						if (targetFile && targetFile instanceof TFile) {
-							// Get a leaf from the main panel (rootSplit), not sidebars
-							leaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
-							if (!leaf) {
+							// Prefer a markdown leaf, fallback to most recent non-terminal leaf
+							if (fileLeaves.length > 0) {
+								leaf = fileLeaves[fileLeaves.length - 1];
+							} else {
+								// No markdown leaves, create a new tab
 								leaf = this.app.workspace.getLeaf('tab');
 							}
 							await leaf.openFile(targetFile);
 						} else {
-							// File doesn't exist yet, use most recent markdown leaf from main panel
-							leaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
-							if (!leaf) {
-								// No leaf in main panel, create one
+							// File doesn't exist yet, prefer markdown leaf or create new
+							if (fileLeaves.length > 0) {
+								leaf = fileLeaves[fileLeaves.length - 1];
+							} else {
 								leaf = this.app.workspace.getLeaf('tab');
 							}
 						}
