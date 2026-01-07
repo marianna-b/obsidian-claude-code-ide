@@ -189,6 +189,34 @@ export const IDE_TOOL_DEFINITIONS: ToolDefinition[] = [
 export class IdeTools {
 	constructor(private app: App) {}
 
+	private normalizePathToVault(filePath: string): string {
+		if (!filePath) return filePath;
+		
+		// Get the vault's base path
+		const adapter = this.app.vault.adapter;
+		const basePath = (adapter as any).getBasePath?.();
+		
+		if (basePath && filePath.startsWith(basePath)) {
+			// This is an absolute filesystem path within the vault
+			// Convert to vault-relative path
+			let relativePath = filePath.substring(basePath.length);
+			// Remove leading slash if present
+			if (relativePath.startsWith('/')) {
+				relativePath = relativePath.substring(1);
+			}
+			return relativePath;
+		}
+		
+		// If it starts with a slash but isn't an absolute path to the vault,
+		// treat it as vault-relative and remove the leading slash
+		if (filePath.startsWith('/')) {
+			return filePath.substring(1);
+		}
+		
+		// Already vault-relative
+		return filePath;
+	}
+
 	createImplementations(): ToolImplementation[] {
 		return [
 			{
@@ -198,7 +226,7 @@ export class IdeTools {
 						const { filePath, preview, startText, endText, selectToEndOfLine, makeFrontmost = true } = args;
 						
 						// Normalize the file path
-						const normalizedPath = filePath.startsWith("/") ? filePath.substring(1) : filePath;
+						const normalizedPath = this.normalizePathToVault(filePath);
 						
 						// Check if file exists
 						const file = this.app.vault.getAbstractFileByPath(normalizedPath);
@@ -395,28 +423,28 @@ export class IdeTools {
 							});
 						}
 						
-						// Handle different operation types
-						if (!old_file_path && new_file_path) {
-							// Create new file
-							if (new_file_contents === null || new_file_contents === undefined) {
-								return reply({
-									error: formatErrorResponse(
-										ErrorCodes.INVALID_PARAMS,
-										"new_file_contents is required when creating a new file"
-									),
-								});
-							}
-							normalizedOldPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
-							normalizedNewPath = normalizedOldPath;
-						} else if (old_file_path && !new_file_path) {
-							// Edit or delete existing file
-							normalizedOldPath = old_file_path.startsWith("/") ? old_file_path.substring(1) : old_file_path;
-							normalizedNewPath = normalizedOldPath;
-						} else {
-							// Move/rename or edit with explicit paths
-							normalizedOldPath = old_file_path.startsWith("/") ? old_file_path.substring(1) : old_file_path;
-							normalizedNewPath = new_file_path.startsWith("/") ? new_file_path.substring(1) : new_file_path;
+					// Handle different operation types
+					if (!old_file_path && new_file_path) {
+						// Create new file
+						if (new_file_contents === null || new_file_contents === undefined) {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INVALID_PARAMS,
+									"new_file_contents is required when creating a new file"
+								),
+							});
 						}
+						normalizedOldPath = this.normalizePathToVault(new_file_path);
+						normalizedNewPath = normalizedOldPath;
+					} else if (old_file_path && !new_file_path) {
+						// Edit or delete existing file
+						normalizedOldPath = this.normalizePathToVault(old_file_path);
+						normalizedNewPath = normalizedOldPath;
+					} else {
+						// Move/rename or edit with explicit paths
+						normalizedOldPath = this.normalizePathToVault(old_file_path);
+						normalizedNewPath = this.normalizePathToVault(new_file_path);
+					}
 						
 					console.debug(`[MCP] OpenDiff requested - old: ${old_file_path}, new: ${new_file_path}, tab: ${tab_name}`);
 					

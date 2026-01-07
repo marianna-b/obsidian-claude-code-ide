@@ -46,19 +46,22 @@ describe("IdeTools", () => {
 			path: "test.md",
 		} as TFile;
 
-		// Create mock app
-		app = {
-			vault: {
-				getAbstractFileByPath: jest.fn(),
-				getName: jest.fn().mockReturnValue("Test Vault"),
-				getFiles: jest.fn().mockReturnValue([]),
+	// Create mock app
+	app = {
+		vault: {
+			getAbstractFileByPath: jest.fn(),
+			getName: jest.fn().mockReturnValue("Test Vault"),
+			getFiles: jest.fn().mockReturnValue([]),
+			adapter: {
+				getBasePath: jest.fn().mockReturnValue("/vault/path"),
 			},
-			workspace: {
-				openLinkText: jest.fn().mockResolvedValue(undefined),
-				activeLeaf: mockLeaf,
-				getActiveFile: jest.fn(),
-			},
-		} as any as App;
+		},
+		workspace: {
+			openLinkText: jest.fn().mockResolvedValue(undefined),
+			activeLeaf: mockLeaf,
+			getActiveFile: jest.fn(),
+		},
+	} as any as App;
 
 		// Create IdeTools instance
 		ideTools = new IdeTools(app);
@@ -96,16 +99,27 @@ describe("IdeTools", () => {
 			expect(app.workspace.openLinkText).toHaveBeenCalledWith("test.md", "", true);
 		});
 
-		it("should handle leading slash in file path", async () => {
-			const filePath = "/test.md";
-			app.vault.getAbstractFileByPath = jest.fn().mockReturnValue(mockFile);
-			
-			const impl = openFileImpl();
-			await impl.handler({ filePath }, mockReply);
+	it("should handle leading slash in file path", async () => {
+		const filePath = "/test.md";
+		app.vault.getAbstractFileByPath = jest.fn().mockReturnValue(mockFile);
+		
+		const impl = openFileImpl();
+		await impl.handler({ filePath }, mockReply);
 
-			expect(app.vault.getAbstractFileByPath).toHaveBeenCalledWith("test.md");
-			expect(app.workspace.openLinkText).toHaveBeenCalledWith("test.md", "", false);
-		});
+		expect(app.vault.getAbstractFileByPath).toHaveBeenCalledWith("test.md");
+		expect(app.workspace.openLinkText).toHaveBeenCalledWith("test.md", "", false);
+	});
+
+	it("should handle absolute filesystem path", async () => {
+		const filePath = "/vault/path/subfolder/test.md";
+		app.vault.getAbstractFileByPath = jest.fn().mockReturnValue(mockFile);
+		
+		const impl = openFileImpl();
+		await impl.handler({ filePath }, mockReply);
+
+		expect(app.vault.getAbstractFileByPath).toHaveBeenCalledWith("subfolder/test.md");
+		expect(app.workspace.openLinkText).toHaveBeenCalledWith("subfolder/test.md", "", false);
+	});
 
 		it("should return detailed response when makeFrontmost is false", async () => {
 			const filePath = "test.md";
