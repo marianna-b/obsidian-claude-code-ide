@@ -502,13 +502,19 @@ export class IdeTools {
 						// Make the leaf active
 						this.app.workspace.setActiveLeaf(leaf, { focus: true });
 						
-						// Wait for user decision
-						const decision = await view.getUserDecision();
-						
-						// Return the decision
+					// Wait for user decision
+					const decision = await view.getUserDecision();
+					
+					// Return structured response with file path for better context
+					if (decision === 'FILE_SAVED') {
+						return reply({
+							result: formatToolResponse(`FILE_SAVED: ${normalizedNewPath} has been written to disk with the new contents. The file now contains the changes that were shown in the diff.`),
+						});
+					} else {
 						return reply({
 							result: formatToolResponse(decision),
 						});
+					}
 					} catch (error) {
 						return reply({
 							error: formatErrorResponse(
