@@ -52,7 +52,7 @@ export const IDE_TOOL_DEFINITIONS: ToolDefinition[] = [
 	},
 	{
 		name: "openDiff",
-		description: "Open a diff view (stub implementation for Obsidian compatibility)",
+		description: "Show a diff view to the user for review. IMPORTANT: If this returns FILE_SAVED, the file has ALREADY been written to disk with the new contents. Do NOT attempt to write the file again or re-apply the same changes. The operation is complete.",
 		category: "ide-specific",
 		inputSchema: {
 			type: "object",
