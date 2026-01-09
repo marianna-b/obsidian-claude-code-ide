@@ -16,7 +16,7 @@ import {
 export class ChangeContentWidget extends WidgetType {
 	constructor(
 		private readonly content: string,
-		private readonly type: 'added' | 'removed'
+		private readonly type: 'added' | 'removed' | 'accepted'
 	) {
 		super();
 	}
@@ -26,11 +26,13 @@ export class ChangeContentWidget extends WidgetType {
 		span.className = `cm-change-widget cm-change-${this.type}`;
 		span.textContent = this.content;
 		
-		// Prevent mouse interactions from affecting editor focus
-		span.addEventListener('mousedown', (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-		});
+		// Prevent mouse interactions from affecting editor focus (except for accepted)
+		if (this.type !== 'accepted') {
+			span.addEventListener('mousedown', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+			});
+		}
 		
 		return span;
 	}

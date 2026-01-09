@@ -65,7 +65,7 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 		block: true
 	}));
 	
-	// Process only pending chunks
+	// Process only pending chunks (show diff + controls)
 	const pendingChunks = diffState.chunks.filter(c => c.status === 'pending');
 	
 	console.log('[InlineDiff] Processing pending chunks:', pendingChunks.length);
@@ -82,6 +82,27 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 			side: 1,
 			block: true
 		}));
+	});
+	
+	// For accepted chunks, show the new text inline (replace old text)
+	const acceptedChunks = diffState.chunks.filter(c => c.status === 'accepted');
+	console.log('[InlineDiff] Processing accepted chunks:', acceptedChunks.length);
+	acceptedChunks.forEach(chunk => {
+		// Hide the old text completely
+		if (chunk.oldRange.from !== chunk.oldRange.to) {
+			builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.mark({
+				class: 'cm-diff-accepted-hidden',
+				attributes: { style: 'display: none;' }
+			}));
+		}
+		
+		// Show the new text as a simple widget
+		if (chunk.newText) {
+			builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
+				widget: new ChangeContentWidget(chunk.newText, 'accepted'),
+				side: -1
+			}));
+		}
 	});
 	
 	const result = builder.finish();
@@ -172,7 +193,7 @@ const decorationStateField = StateField.define<DecorationSet>({
 });
 
 /**
- * ViewPlugin to handle final application of changes
+ * ViewPlugin to handle chunk acceptance and final application
  */
 function createApplyDiffPlugin(app: App) {
 	return ViewPlugin.fromClass(class {
@@ -184,7 +205,7 @@ function createApplyDiffPlugin(app: App) {
 			
 			// Check if all chunks have been processed
 			if (areAllChunksProcessed(diffState)) {
-				// Apply accepted chunks
+				// Apply all accepted chunks at once
 				this.applyAcceptedChanges(diffState);
 			}
 		}
