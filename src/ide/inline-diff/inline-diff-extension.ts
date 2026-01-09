@@ -132,10 +132,7 @@ const decorationViewPlugin = ViewPlugin.fromClass(class {
 		}
 	}
 }, {
-	decorations: (plugin) => {
-		console.log('[InlineDiff] Decorations getter called, size:', plugin.decorations.size);
-		return plugin.decorations;
-	}
+	decorations: v => v.decorations
 });
 
 /**
