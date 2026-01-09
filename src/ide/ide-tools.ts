@@ -3,6 +3,9 @@ import { McpReplyFunction } from "../mcp/types";
 import { ToolImplementation, ToolDefinition } from "../shared/tool-registry";
 import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/response-helpers";
 import { DiffView, DIFF_VIEW_TYPE } from "./diff-view";
+import { EditorView } from '@codemirror/view';
+import { showInlineDiffEffect } from './inline-diff/inline-diff-extension';
+import { computeDiffChunks } from './inline-diff/diff-chunks';
 
 // IDE-specific tool definitions
 export const IDE_TOOL_DEFINITIONS: ToolDefinition[] = [
@@ -410,10 +413,7 @@ export class IdeTools {
 					try {
 						const { old_file_path, new_file_path, new_file_contents, tab_name } = args || {};
 						
-						// Determine the operation type and validate parameters
-						let normalizedOldPath: string;
-						let normalizedNewPath: string;
-						
+						// Validate parameters
 						if (!old_file_path && !new_file_path) {
 							return reply({
 								error: formatErrorResponse(
@@ -423,98 +423,125 @@ export class IdeTools {
 							});
 						}
 						
-					// Handle different operation types
-					if (!old_file_path && new_file_path) {
-						// Create new file
-						if (new_file_contents === null || new_file_contents === undefined) {
+						// Handle file creation (no old_file_path)
+						if (!old_file_path && new_file_path) {
+							if (new_file_contents === null || new_file_contents === undefined) {
+								return reply({
+									error: formatErrorResponse(
+										ErrorCodes.INVALID_PARAMS,
+										"new_file_contents is required when creating a new file"
+									),
+								});
+							}
+							
+							const normalizedPath = this.normalizePathToVault(new_file_path);
+							
+							// Create directories if needed
+							const dir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
+							if (dir) {
+								await this.app.vault.createFolder(dir).catch(() => {});
+							}
+							
+							// Create the file directly
+							await this.app.vault.create(normalizedPath, new_file_contents);
+							
+							return reply({
+								result: formatToolResponse(`FILE_CREATED: ${normalizedPath}`)
+							});
+						}
+						
+						// Handle file deletion (no new_file_contents)
+						if (old_file_path && (!new_file_contents || new_file_contents.length === 0)) {
+							const normalizedPath = this.normalizePathToVault(old_file_path);
+							const fileToDelete = this.app.vault.getAbstractFileByPath(normalizedPath);
+							
+							if (fileToDelete && fileToDelete instanceof TFile) {
+								await this.app.vault.delete(fileToDelete);
+								return reply({
+									result: formatToolResponse(`FILE_DELETED: ${normalizedPath}`)
+								});
+							} else {
+								return reply({
+									error: formatErrorResponse(
+										ErrorCodes.INVALID_PARAMS,
+										`File not found: ${normalizedPath}`
+									)
+								});
+							}
+						}
+						
+						// File modification - use inline diff
+						const normalizedPath = this.normalizePathToVault(old_file_path || new_file_path);
+						console.debug(`[MCP] OpenDiff (inline) requested for: ${normalizedPath}`);
+						
+						// Get the file
+						const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+						if (!file || !(file instanceof TFile)) {
 							return reply({
 								error: formatErrorResponse(
 									ErrorCodes.INVALID_PARAMS,
-									"new_file_contents is required when creating a new file"
-								),
+									`File not found: ${normalizedPath}`
+								)
 							});
 						}
-						normalizedOldPath = this.normalizePathToVault(new_file_path);
-						normalizedNewPath = normalizedOldPath;
-					} else if (old_file_path && !new_file_path) {
-						// Edit or delete existing file
-						normalizedOldPath = this.normalizePathToVault(old_file_path);
-						normalizedNewPath = normalizedOldPath;
-					} else {
-						// Move/rename or edit with explicit paths
-						normalizedOldPath = this.normalizePathToVault(old_file_path);
-						normalizedNewPath = this.normalizePathToVault(new_file_path);
-					}
 						
-					console.debug(`[MCP] OpenDiff requested - old: ${old_file_path}, new: ${new_file_path}, tab: ${tab_name}`);
-					
-					// Close any existing diff views
-					this.app.workspace.detachLeavesOfType(DIFF_VIEW_TYPE);
-					
-					// Get or open the file being edited to provide context for the diff
-					let leaf: WorkspaceLeaf | null = null;
-					
-					// Try to find a markdown leaf that's already editing the relevant file
-					const fileLeaves = this.app.workspace.getLeavesOfType('markdown');
-					for (const fileLeaf of fileLeaves) {
-						const file = (fileLeaf.view as any).file;
-						if (file && (file.path === normalizedOldPath || file.path === normalizedNewPath)) {
-							leaf = fileLeaf;
-							break;
+						// Open file in new tab
+						const leaf = this.app.workspace.getLeaf('tab');
+						await leaf.openFile(file);
+						
+						// Get editor view
+						const view = leaf.view;
+						if (view.getViewType() !== 'markdown') {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INTERNAL_ERROR,
+									'Not a markdown view'
+								)
+							});
 						}
-					}
-					
-					// If the file isn't already open, create a new tab in the main workspace
-					if (!leaf) {
-						// Try to use an existing markdown tab's parent to create new tab
-						if (fileLeaves.length > 0) {
-							const referenceLeaf = fileLeaves[0];
-							// Create leaf in the same parent container as markdown tabs
-							const parent = referenceLeaf.parent;
-							if (parent) {
-								leaf = this.app.workspace.createLeafInParent(parent, fileLeaves.length);
-							} else {
-								leaf = this.app.workspace.getLeaf('tab');
-							}
-						} else {
-							// No markdown tabs exist, create a new split in the main workspace
-							const rootLeaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
-							if (rootLeaf) {
-								leaf = this.app.workspace.createLeafBySplit(rootLeaf, 'vertical');
-							} else {
-								// Last resort fallback
-								leaf = this.app.workspace.getLeaf('tab');
-							}
+						
+						const editor = (view as any).editor;
+						if (!editor) {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INTERNAL_ERROR,
+									'No editor available'
+								)
+							});
 						}
-					}
 						
-						// Create the view with state
-						const view = new DiffView(leaf, {
-							oldFilePath: normalizedOldPath,
-							newFilePath: normalizedNewPath,
-							newFileContents: new_file_contents || '',
-							tabName: tab_name || 'Diff View'
+						// Get CodeMirror EditorView
+						const cmEditor = (editor as any).cm as EditorView;
+						if (!cmEditor) {
+							return reply({
+								error: formatErrorResponse(
+									ErrorCodes.INTERNAL_ERROR,
+									'CodeMirror not available'
+								)
+							});
+						}
+						
+						// Read old content
+						const oldContent = await this.app.vault.read(file);
+						
+						// Compute diff chunks
+						const chunks = computeDiffChunks(oldContent, new_file_contents || '');
+						
+						// Dispatch inline diff effect
+						cmEditor.dispatch({
+							effects: showInlineDiffEffect.of({
+								filePath: normalizedPath,
+								chunks: chunks,
+								originalContent: oldContent,
+								targetContent: new_file_contents || ''
+							})
 						});
 						
-						// Set the view on the leaf
-						leaf.open(view);
-						
-						// Make the leaf active
-						this.app.workspace.setActiveLeaf(leaf, { focus: true });
-						
-					// Wait for user decision
-					const decision = await view.getUserDecision();
-					
-					// Return structured response with file path for better context
-					if (decision === 'FILE_SAVED') {
+						// Return immediately - user will interact with chunks
 						return reply({
-							result: formatToolResponse(`FILE_SAVED: ${normalizedNewPath} has been written to disk with the new contents. The file now contains the changes that were shown in the diff.`),
+							result: formatToolResponse(`DIFF_SHOWN: ${chunks.length} ${chunks.length === 1 ? 'chunk' : 'chunks'} to review in ${normalizedPath}`)
 						});
-					} else {
-						return reply({
-							result: formatToolResponse(decision),
-						});
-					}
+						
 					} catch (error) {
 						return reply({
 							error: formatErrorResponse(
