@@ -465,6 +465,7 @@
 	display: inline;
 	font-family: var(--font-text);
 	line-height: 1.5;
+	white-space: pre-wrap; /* Preserve newlines and spaces */
 }
 
 .cm-change-added {
