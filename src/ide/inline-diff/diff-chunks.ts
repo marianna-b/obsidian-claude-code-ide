@@ -15,8 +15,12 @@ export function computeDiffChunks(
 ): DiffChunk[] {
 	const dmp = new DiffMatchPatch();
 	
-	// Compute the diff with semantic cleanup
-	const diffs = dmp.diff_main(oldContent, newContent);
+	// Use line mode for better handling of multi-line changes
+	const lineArray = dmp.diff_linesToChars_(oldContent, newContent);
+	const diffs = dmp.diff_main(lineArray.chars1, lineArray.chars2, false);
+	dmp.diff_charsToLines_(diffs, lineArray.lineArray);
+	
+	// Apply semantic cleanup for better grouping
 	dmp.diff_cleanupSemantic(diffs);
 	
 	// Group diffs into chunks
