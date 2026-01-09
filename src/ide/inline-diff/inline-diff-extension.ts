@@ -69,6 +69,14 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 	
 	const result = builder.finish();
 	console.log('[InlineDiff] Built decorations, size:', result.size);
+	
+	// Log what's in the decoration set
+	const decorArray: any[] = [];
+	result.between(0, state.doc.length, (from, to, value) => {
+		decorArray.push({ from, to, spec: value.spec });
+	});
+	console.log('[InlineDiff] Decorations content:', decorArray);
+	
 	return result;
 }
 
