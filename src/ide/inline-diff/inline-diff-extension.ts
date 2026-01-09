@@ -65,47 +65,48 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 		block: true
 	}));
 	
-	// Process only pending chunks (show diff + controls)
-	const pendingChunks = diffState.chunks.filter(c => c.status === 'pending');
+	// Process all chunks in position order (critical for RangeSetBuilder)
+	const sortedChunks = [...diffState.chunks].sort((a, b) => a.oldRange.from - b.oldRange.from);
 	
-	console.log('[InlineDiff] Processing pending chunks:', pendingChunks.length);
-	pendingChunks.forEach((chunk, index) => {
-		console.log('[InlineDiff] Adding widget for chunk', index, 'at position', chunk.oldRange.from);
-		
-		// Add inline diff decorations first
-		addChunkDecorations(builder, chunk);
-		console.log('[InlineDiff] Back from addChunkDecorations');
-		
-		// Add chunk control widget at the end of the chunk
-		const endPos = chunk.oldRange.to;
-		console.log('[InlineDiff] Adding chunk control widget at', endPos);
-		builder.add(endPos, endPos, Decoration.widget({
-			widget: new ChunkControlWidget(chunk.id, index, pendingCount, view),
-			side: 1,
-			block: true
-		}));
-		console.log('[InlineDiff] Chunk control widget added');
-	});
+	console.log('[InlineDiff] Processing chunks in order:', sortedChunks.length);
+	let pendingIndex = 0;
 	
-	// For accepted chunks, show the new text inline (replace old text)
-	const acceptedChunks = diffState.chunks.filter(c => c.status === 'accepted');
-	console.log('[InlineDiff] Processing accepted chunks:', acceptedChunks.length);
-	acceptedChunks.forEach(chunk => {
-		// Add new text widget BEFORE hiding the old text
-		if (chunk.newText) {
-			builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
-				widget: new ChangeContentWidget(chunk.newText, 'accepted'),
-				side: -1
+	sortedChunks.forEach((chunk) => {
+		if (chunk.status === 'pending') {
+			console.log('[InlineDiff] Adding pending chunk at position', chunk.oldRange.from);
+			
+			// Add inline diff decorations
+			addChunkDecorations(builder, chunk);
+			
+			// Add chunk control widget at the end
+			const endPos = chunk.oldRange.to;
+			builder.add(endPos, endPos, Decoration.widget({
+				widget: new ChunkControlWidget(chunk.id, pendingIndex, pendingCount, view),
+				side: 1,
+				block: true
 			}));
+			pendingIndex++;
+			
+		} else if (chunk.status === 'accepted') {
+			console.log('[InlineDiff] Adding accepted chunk at position', chunk.oldRange.from);
+			
+			// Add new text widget BEFORE hiding the old text
+			if (chunk.newText) {
+				builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
+					widget: new ChangeContentWidget(chunk.newText, 'accepted'),
+					side: -1
+				}));
+			}
+			
+			// Then hide the old text completely
+			if (chunk.oldRange.from !== chunk.oldRange.to) {
+				builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.mark({
+					class: 'cm-diff-accepted-hidden',
+					attributes: { style: 'display: none;' }
+				}));
+			}
 		}
-		
-		// Then hide the old text completely
-		if (chunk.oldRange.from !== chunk.oldRange.to) {
-			builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.mark({
-				class: 'cm-diff-accepted-hidden',
-				attributes: { style: 'display: none;' }
-			}));
-		}
+		// Rejected chunks: do nothing, they're just ignored
 	});
 	
 	const result = builder.finish();
