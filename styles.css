@@ -462,7 +462,7 @@
 .cm-change-widget {
 	padding: 0px 4px;
 	color: var(--text-normal);
-	display: inline;
+	/* display set by element type (span=inline, div=block) */
 	font-family: var(--font-text);
 	line-height: 1.5;
 	white-space: pre-wrap; /* Preserve newlines and spaces */
