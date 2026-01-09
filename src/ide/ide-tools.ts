@@ -566,7 +566,12 @@ export class IdeTools {
 					console.log('[DIFF DEBUG] Chunk details:', JSON.stringify(chunks, null, 2));
 					
 					// Small delay to ensure editor is fully initialized
-					await new Promise(resolve => setTimeout(resolve, 100));
+					await new Promise(resolve => setTimeout(resolve, 200));
+					
+					// Check if extension is registered
+					const hasField = cmEditor.state.field(inlineDiffStateField, false) !== undefined;
+					console.log('[DIFF DEBUG] Has inlineDiffStateField before dispatch:', hasField);
+					console.log('[DIFF DEBUG] Total state fields:', Object.keys((cmEditor.state as any).fields || {}).length);
 					
 					console.log('[DIFF DEBUG] Dispatching inline diff effect');
 					// Dispatch inline diff effect
