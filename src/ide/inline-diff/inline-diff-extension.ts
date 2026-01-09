@@ -130,27 +130,19 @@ function addChunkDecorations(builder: RangeSetBuilder<Decoration>, chunk: DiffCh
 	console.log('[InlineDiff] chunk.newText:', chunk.newText);
 	console.log('[InlineDiff] chunk.oldRange:', chunk.oldRange);
 	
-	// Add removed text widget before the range
-	if (chunk.oldText) {
-		console.log('[InlineDiff] Adding removed text widget at', chunk.oldRange.from);
-		builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
+	// Add removed text widget as a RANGE decoration (like inlineAI does)
+	if (chunk.oldText && chunk.oldRange.from !== chunk.oldRange.to) {
+		console.log('[InlineDiff] Adding removed text widget from', chunk.oldRange.from, 'to', chunk.oldRange.to);
+		builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.widget({
 			widget: new ChangeContentWidget(chunk.oldText, 'removed'),
 			side: -1
 		}));
 	}
 	
-	// Add mark decoration for the replaced range
-	if (chunk.oldText && chunk.oldRange.from !== chunk.oldRange.to) {
-		console.log('[InlineDiff] Adding mark decoration from', chunk.oldRange.from, 'to', chunk.oldRange.to);
-		builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.mark({
-			class: 'cm-diff-replaced-text',
-			attributes: { style: 'opacity: 0.3;' }
-		}));
-	}
-	
-	// Add new text widget after the range (or at the position for pure inserts)
+	// Add new text widget as a POINT decoration at the start position
 	if (chunk.newText) {
-		const insertPos = chunk.oldRange.to; // Place after the old range
+		// For pure inserts or changes, place the new text at the start of the range
+		const insertPos = chunk.oldRange.from;
 		console.log('[InlineDiff] Adding new text widget at', insertPos);
 		builder.add(insertPos, insertPos, Decoration.widget({
 			widget: new ChangeContentWidget(chunk.newText, 'added'),
