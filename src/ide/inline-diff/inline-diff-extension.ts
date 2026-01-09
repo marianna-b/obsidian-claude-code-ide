@@ -43,6 +43,7 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 	console.log('[InlineDiff] Pending chunks:', pendingCount, 'Total chunks:', diffState.chunks.length);
 	
 	// Add header widget at the top
+	console.log('[InlineDiff] Adding header widget');
 	builder.add(0, 0, Decoration.widget({
 		widget: new DiffHeaderWidget(pendingCount, diffState.chunks.length, view),
 		side: -1,
@@ -52,7 +53,9 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 	// Process only pending chunks
 	const pendingChunks = diffState.chunks.filter(c => c.status === 'pending');
 	
+	console.log('[InlineDiff] Processing pending chunks:', pendingChunks.length);
 	pendingChunks.forEach((chunk, index) => {
+		console.log('[InlineDiff] Adding widget for chunk', index, 'at position', chunk.oldRange.from);
 		// Add chunk control widget at the start of the chunk
 		builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
 			widget: new ChunkControlWidget(chunk.id, index, pendingCount, view),
@@ -64,7 +67,9 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 		addChunkDecorations(builder, chunk);
 	});
 	
-	return builder.finish();
+	const result = builder.finish();
+	console.log('[InlineDiff] Built decorations, size:', result.size);
+	return result;
 }
 
 /**

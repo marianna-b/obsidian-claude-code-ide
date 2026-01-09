@@ -54,6 +54,7 @@ export class ChunkControlWidget extends WidgetType {
 	}
 	
 	toDOM(): HTMLElement {
+		console.log('[Widget] Creating ChunkControlWidget', this.chunkId, 'at index', this.chunkIndex);
 		const container = document.createElement('div');
 		container.className = 'cm-diff-chunk-controls';
 		
@@ -116,6 +117,7 @@ export class DiffHeaderWidget extends WidgetType {
 	}
 	
 	toDOM(): HTMLElement {
+		console.log('[Widget] Creating DiffHeaderWidget', this.pendingCount, 'pending');
 		const header = document.createElement('div');
 		header.className = 'cm-diff-header';
 		
