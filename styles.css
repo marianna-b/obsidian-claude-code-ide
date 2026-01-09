@@ -380,3 +380,86 @@
 	font-size: 12px;
 	padding: 6px 12px;
 }
+
+/* Inline Diff Styles */
+.cm-diff-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 12px;
+	background: var(--background-secondary);
+	border-bottom: 2px solid var(--background-modifier-border);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin-bottom: 8px;
+}
+
+.cm-diff-header-counter {
+	color: var(--text-accent);
+}
+
+.cm-diff-header-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.cm-diff-header-actions button {
+	padding: 4px 10px;
+	font-size: 12px;
+	border-radius: 3px;
+}
+
+.cm-diff-chunk-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px;
+	margin: 8px 0 4px 0;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cm-diff-chunk-controls button {
+	padding: 4px 12px;
+	font-size: 12px;
+	border-radius: 3px;
+}
+
+.cm-diff-chunk-controls .accept-button {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.cm-diff-chunk-info {
+	font-size: 11px;
+	color: var(--text-muted);
+	font-weight: 500;
+	margin-left: auto;
+}
+
+.cm-change-widget {
+	padding: 1px 3px;
+	border-radius: 2px;
+	font-family: var(--font-text);
+	display: inline;
+}
+
+.cm-change-added {
+	background-color: rgba(var(--color-green-rgb), 0.2);
+	color: var(--text-normal);
+	border: 1px solid rgba(var(--color-green-rgb), 0.4);
+}
+
+.cm-change-removed {
+	background-color: rgba(var(--color-red-rgb), 0.2);
+	color: var(--text-faint);
+	text-decoration: line-through;
+	border: 1px solid rgba(var(--color-red-rgb), 0.4);
+}
+
+.cm-diff-replaced-text {
+	opacity: 0.3;
+}
