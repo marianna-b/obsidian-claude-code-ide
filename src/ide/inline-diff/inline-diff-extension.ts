@@ -74,14 +74,17 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 		
 		// Add inline diff decorations first
 		addChunkDecorations(builder, chunk);
+		console.log('[InlineDiff] Back from addChunkDecorations');
 		
 		// Add chunk control widget at the end of the chunk
 		const endPos = chunk.oldRange.to;
+		console.log('[InlineDiff] Adding chunk control widget at', endPos);
 		builder.add(endPos, endPos, Decoration.widget({
 			widget: new ChunkControlWidget(chunk.id, index, pendingCount, view),
 			side: 1,
 			block: true
 		}));
+		console.log('[InlineDiff] Chunk control widget added');
 	});
 	
 	// For accepted chunks, show the new text inline (replace old text)
@@ -122,8 +125,14 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
  * Add decorations for a single chunk
  */
 function addChunkDecorations(builder: RangeSetBuilder<Decoration>, chunk: DiffChunk): void {
+	console.log('[InlineDiff] addChunkDecorations called for chunk:', chunk.id);
+	console.log('[InlineDiff] chunk.oldText:', chunk.oldText);
+	console.log('[InlineDiff] chunk.newText:', chunk.newText);
+	console.log('[InlineDiff] chunk.oldRange:', chunk.oldRange);
+	
 	// For deletions and changes, mark the old text
 	if (chunk.oldText) {
+		console.log('[InlineDiff] Adding removed text widget at', chunk.oldRange.from);
 		// Add removed text widget
 		builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
 			widget: new ChangeContentWidget(chunk.oldText, 'removed'),
@@ -132,6 +141,7 @@ function addChunkDecorations(builder: RangeSetBuilder<Decoration>, chunk: DiffCh
 		
 		// Mark the range that will be replaced
 		if (chunk.oldRange.from !== chunk.oldRange.to) {
+			console.log('[InlineDiff] Adding mark decoration from', chunk.oldRange.from, 'to', chunk.oldRange.to);
 			builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.mark({
 				class: 'cm-diff-replaced-text',
 				attributes: { style: 'opacity: 0.3;' }
@@ -141,11 +151,13 @@ function addChunkDecorations(builder: RangeSetBuilder<Decoration>, chunk: DiffCh
 	
 	// For insertions and changes, show the new text
 	if (chunk.newText) {
+		console.log('[InlineDiff] Adding new text widget at', chunk.oldRange.from);
 		builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
 			widget: new ChangeContentWidget(chunk.newText, 'added'),
 			side: 1
 		}));
 	}
+	console.log('[InlineDiff] addChunkDecorations complete');
 }
 
 /**
