@@ -2,7 +2,7 @@
  * Chunk computation logic for inline diffs
  */
 
-import DiffMatchPatch = require('diff-match-patch');
+import * as DiffMatchPatch from 'diff-match-patch';
 import { DiffChunk, ChunkDecision } from './types';
 
 /**
