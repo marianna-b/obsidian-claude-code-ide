@@ -71,15 +71,17 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 	console.log('[InlineDiff] Processing pending chunks:', pendingChunks.length);
 	pendingChunks.forEach((chunk, index) => {
 		console.log('[InlineDiff] Adding widget for chunk', index, 'at position', chunk.oldRange.from);
-		// Add chunk control widget at the start of the chunk
-		builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
+		
+		// Add inline diff decorations first
+		addChunkDecorations(builder, chunk);
+		
+		// Add chunk control widget at the end of the chunk
+		const endPos = chunk.oldRange.to;
+		builder.add(endPos, endPos, Decoration.widget({
 			widget: new ChunkControlWidget(chunk.id, index, pendingCount, view),
-			side: -1,
+			side: 1,
 			block: true
 		}));
-		
-		// Add inline diff decorations
-		addChunkDecorations(builder, chunk);
 	});
 	
 	const result = builder.finish();
