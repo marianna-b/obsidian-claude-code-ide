@@ -14,6 +14,7 @@ import {
 } from "./src/settings";
 import claudeLogo from "./assets/claude-logo.png";
 import { DiffView, DIFF_VIEW_TYPE, DIFF_VIEW_STYLES } from "./src/ide/diff-view";
+import { createInlineDiffExtension } from "./src/ide/inline-diff/inline-diff-extension";
 
 export default class ClaudeMcpPlugin extends Plugin {
 	public mcpServer!: McpDualServer;
@@ -53,6 +54,9 @@ export default class ClaudeMcpPlugin extends Plugin {
 		const styleEl = document.createElement('style');
 		styleEl.textContent = DIFF_VIEW_STYLES;
 		document.head.appendChild(styleEl);
+
+		// Register inline diff extension for CodeMirror
+		this.registerEditorExtension(createInlineDiffExtension(this.app));
 
 		// Add command to send selection to Claude
 		this.addCommand({
