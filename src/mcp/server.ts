@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import * as crypto from "crypto";
 import { McpRequest, McpNotification } from "./types";
 import { getClaudeIdeDir } from "../claude-config";
@@ -14,6 +15,7 @@ export interface McpServerConfig {
 export class McpServer {
 	private wss!: WebSocketServer;
 	private lockFilePath = "";
+	private legacyLockFilePath = "";
 	private connectedClients: Set<WebSocket> = new Set();
 	private config: McpServerConfig;
 	private port: number = 0;
@@ -92,6 +94,9 @@ export class McpServer {
 		if (this.lockFilePath && fs.existsSync(this.lockFilePath)) {
 			fs.unlinkSync(this.lockFilePath);
 		}
+		if (this.legacyLockFilePath && fs.existsSync(this.legacyLockFilePath)) {
+			fs.unlinkSync(this.legacyLockFilePath);
+		}
 	}
 
 	broadcast(message: McpNotification): void {
@@ -120,6 +125,12 @@ export class McpServer {
 
 		this.lockFilePath = path.join(ideDir, `${port}.lock`);
 		
+		// Also write to ~/.claude/ide/ for compatibility
+		const homeDir = os.homedir();
+		const legacyIdeDir = path.join(homeDir, '.claude', 'ide');
+		fs.mkdirSync(legacyIdeDir, { recursive: true });
+		this.legacyLockFilePath = path.join(legacyIdeDir, `${port}.lock`);
+		
 		// We'll get the base path from the caller
 		const lockFileContent = {
 			pid: process.pid,
@@ -129,6 +140,7 @@ export class McpServer {
 			authToken: this.authToken, // Add auth token to lock file
 		};
 		fs.writeFileSync(this.lockFilePath, JSON.stringify(lockFileContent));
+		fs.writeFileSync(this.legacyLockFilePath, JSON.stringify(lockFileContent));
 	}
 
 	updateWorkspaceFolders(basePath: string): void {
@@ -136,6 +148,11 @@ export class McpServer {
 			const lockContent = JSON.parse(fs.readFileSync(this.lockFilePath, 'utf8'));
 			lockContent.workspaceFolders = [basePath];
 			fs.writeFileSync(this.lockFilePath, JSON.stringify(lockContent));
+		}
+		if (this.legacyLockFilePath && fs.existsSync(this.legacyLockFilePath)) {
+			const lockContent = JSON.parse(fs.readFileSync(this.legacyLockFilePath, 'utf8'));
+			lockContent.workspaceFolders = [basePath];
+			fs.writeFileSync(this.legacyLockFilePath, JSON.stringify(lockContent));
 		}
 	}
 
