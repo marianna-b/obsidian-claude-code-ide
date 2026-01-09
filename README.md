@@ -181,6 +181,10 @@ This separation ensures that:
 - Standard MCP clients only see appropriate tools
 - Shared functionality is available to all clients
 
+## Acknowledgments
+
+The inline diff feature was inspired by the [obsidian-inlineAI](https://github.com/FBarrca/obsidian-inlineAI) plugin. We adapted the CodeMirror 6 decoration patterns and diff visualization concepts. See [ATTRIBUTION-inline-diff.md](./ATTRIBUTION-inline-diff.md) for details.
+
 ## Development
 
 This project uses TypeScript to provide type checking and documentation.
