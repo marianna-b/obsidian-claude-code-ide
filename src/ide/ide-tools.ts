@@ -470,8 +470,12 @@ export class IdeTools {
 							}
 						}
 						
-					// File modification - use inline diff
+				// File modification - use inline diff
 					const normalizedPath = this.normalizePathToVault(old_file_path || new_file_path);
+					console.log('[DIFF DEBUG] Starting inline diff for:', normalizedPath);
+					console.log('[DIFF DEBUG] old_file_path:', old_file_path);
+					console.log('[DIFF DEBUG] new_file_path:', new_file_path);
+					console.log('[DIFF DEBUG] new_file_contents length:', new_file_contents?.length);
 					
 					// Get the file
 						const file = this.app.vault.getAbstractFileByPath(normalizedPath);
@@ -484,12 +488,14 @@ export class IdeTools {
 							});
 						}
 						
-					// Try to find a markdown leaf that's already editing the file
+				// Try to find a markdown leaf that's already editing the file
 					let leaf: WorkspaceLeaf | null = null;
 					const fileLeaves = this.app.workspace.getLeavesOfType('markdown');
+					console.log('[DIFF DEBUG] Found markdown leaves:', fileLeaves.length);
 					for (const fileLeaf of fileLeaves) {
 						const leafFile = (fileLeaf.view as any).file;
 						if (leafFile && leafFile.path === normalizedPath) {
+							console.log('[DIFF DEBUG] Found existing leaf for file');
 							leaf = fileLeaf;
 							break;
 						}
@@ -497,17 +503,21 @@ export class IdeTools {
 					
 					// If the file isn't already open, create a new tab in the main workspace
 					if (!leaf) {
+						console.log('[DIFF DEBUG] Creating new leaf');
 						// Try to use an existing markdown tab's parent to create new tab
 						if (fileLeaves.length > 0) {
 							const referenceLeaf = fileLeaves[0];
 							// Create leaf in the same parent container as markdown tabs
 							const parent = referenceLeaf.parent;
 							if (parent) {
+								console.log('[DIFF DEBUG] Creating leaf in parent');
 								leaf = this.app.workspace.createLeafInParent(parent, fileLeaves.length);
 							} else {
+								console.log('[DIFF DEBUG] Using getLeaf(tab)');
 								leaf = this.app.workspace.getLeaf('tab');
 							}
 						} else {
+							console.log('[DIFF DEBUG] No markdown tabs, creating split');
 							// No markdown tabs exist, create a new split in the main workspace
 							const rootLeaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
 							if (rootLeaf) {
@@ -517,11 +527,14 @@ export class IdeTools {
 								leaf = this.app.workspace.getLeaf('tab');
 							}
 						}
+						console.log('[DIFF DEBUG] Opening file in leaf');
 						await leaf.openFile(file);
 					}
 						
-						// Get editor view
+				console.log('[DIFF DEBUG] Leaf opened, getting view');
+					// Get editor view
 						const view = leaf.view;
+						console.log('[DIFF DEBUG] View type:', view.getViewType());
 						if (view.getViewType() !== 'markdown') {
 							return reply({
 								error: formatErrorResponse(
@@ -531,7 +544,8 @@ export class IdeTools {
 							});
 						}
 						
-						const editor = (view as any).editor;
+					const editor = (view as any).editor;
+						console.log('[DIFF DEBUG] Got editor:', !!editor);
 						if (!editor) {
 							return reply({
 								error: formatErrorResponse(
@@ -541,8 +555,9 @@ export class IdeTools {
 							});
 						}
 						
-						// Get CodeMirror EditorView
+					// Get CodeMirror EditorView
 						const cmEditor = (editor as any).cm as EditorView;
+						console.log('[DIFF DEBUG] Got CodeMirror:', !!cmEditor);
 						if (!cmEditor) {
 							return reply({
 								error: formatErrorResponse(
@@ -552,15 +567,19 @@ export class IdeTools {
 							});
 						}
 						
-						// Read old content
+					// Read old content
 						const oldContent = await this.app.vault.read(file);
+						console.log('[DIFF DEBUG] Old content length:', oldContent.length);
 						
 					// Compute diff chunks
 					const chunks = computeDiffChunks(oldContent, new_file_contents || '');
+					console.log('[DIFF DEBUG] Computed chunks:', chunks.length);
+					console.log('[DIFF DEBUG] Chunk details:', JSON.stringify(chunks, null, 2));
 					
 					// Small delay to ensure editor is fully initialized
 					await new Promise(resolve => setTimeout(resolve, 100));
 					
+					console.log('[DIFF DEBUG] Dispatching inline diff effect');
 					// Dispatch inline diff effect
 					cmEditor.dispatch({
 						effects: showInlineDiffEffect.of({
@@ -570,6 +589,13 @@ export class IdeTools {
 							targetContent: new_file_contents || ''
 						})
 					});
+					console.log('[DIFF DEBUG] Dispatch complete');
+					
+					// Check if state field exists and has extensions
+					const state = cmEditor.state.field(inlineDiffStateField, false);
+					console.log('[DIFF DEBUG] State after dispatch:', state);
+					console.log('[DIFF DEBUG] Editor extensions:', cmEditor.state.facet(EditorView.decorations));
+					console.log('[DIFF DEBUG] Has inline diff extension:', cmEditor.state.field(inlineDiffStateField, false) !== undefined);
 						
 						// Return immediately - user will interact with chunks
 						return reply({
