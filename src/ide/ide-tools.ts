@@ -470,11 +470,10 @@ export class IdeTools {
 							}
 						}
 						
-						// File modification - use inline diff
-						const normalizedPath = this.normalizePathToVault(old_file_path || new_file_path);
-						console.debug(`[MCP] OpenDiff (inline) requested for: ${normalizedPath}`);
-						
-						// Get the file
+					// File modification - use inline diff
+					const normalizedPath = this.normalizePathToVault(old_file_path || new_file_path);
+					
+					// Get the file
 						const file = this.app.vault.getAbstractFileByPath(normalizedPath);
 						if (!file || !(file instanceof TFile)) {
 							return reply({
@@ -485,9 +484,41 @@ export class IdeTools {
 							});
 						}
 						
-						// Open file in new tab
-						const leaf = this.app.workspace.getLeaf('tab');
+					// Try to find a markdown leaf that's already editing the file
+					let leaf: WorkspaceLeaf | null = null;
+					const fileLeaves = this.app.workspace.getLeavesOfType('markdown');
+					for (const fileLeaf of fileLeaves) {
+						const leafFile = (fileLeaf.view as any).file;
+						if (leafFile && leafFile.path === normalizedPath) {
+							leaf = fileLeaf;
+							break;
+						}
+					}
+					
+					// If the file isn't already open, create a new tab in the main workspace
+					if (!leaf) {
+						// Try to use an existing markdown tab's parent to create new tab
+						if (fileLeaves.length > 0) {
+							const referenceLeaf = fileLeaves[0];
+							// Create leaf in the same parent container as markdown tabs
+							const parent = referenceLeaf.parent;
+							if (parent) {
+								leaf = this.app.workspace.createLeafInParent(parent, fileLeaves.length);
+							} else {
+								leaf = this.app.workspace.getLeaf('tab');
+							}
+						} else {
+							// No markdown tabs exist, create a new split in the main workspace
+							const rootLeaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
+							if (rootLeaf) {
+								leaf = this.app.workspace.createLeafBySplit(rootLeaf, 'vertical');
+							} else {
+								// Last resort fallback
+								leaf = this.app.workspace.getLeaf('tab');
+							}
+						}
 						await leaf.openFile(file);
+					}
 						
 						// Get editor view
 						const view = leaf.view;
@@ -524,27 +555,21 @@ export class IdeTools {
 						// Read old content
 						const oldContent = await this.app.vault.read(file);
 						
-						// Compute diff chunks
-						const chunks = computeDiffChunks(oldContent, new_file_contents || '');
-						console.log('[MCP] Computed chunks:', chunks.length, chunks);
-						
-						// Small delay to ensure editor is fully initialized
-						await new Promise(resolve => setTimeout(resolve, 100));
-						
-						// Dispatch inline diff effect
-						console.log('[MCP] Dispatching inline diff effect to CodeMirror');
-						cmEditor.dispatch({
-							effects: showInlineDiffEffect.of({
-								filePath: normalizedPath,
-								chunks: chunks,
-								originalContent: oldContent,
-								targetContent: new_file_contents || ''
-							})
-						});
-						
-						// Verify state was set
-						const verifyState = cmEditor.state.field(inlineDiffStateField, false);
-						console.log('[MCP] Diff state after dispatch:', verifyState);
+					// Compute diff chunks
+					const chunks = computeDiffChunks(oldContent, new_file_contents || '');
+					
+					// Small delay to ensure editor is fully initialized
+					await new Promise(resolve => setTimeout(resolve, 100));
+					
+					// Dispatch inline diff effect
+					cmEditor.dispatch({
+						effects: showInlineDiffEffect.of({
+							filePath: normalizedPath,
+							chunks: chunks,
+							originalContent: oldContent,
+							targetContent: new_file_contents || ''
+						})
+					});
 						
 						// Return immediately - user will interact with chunks
 						return reply({
