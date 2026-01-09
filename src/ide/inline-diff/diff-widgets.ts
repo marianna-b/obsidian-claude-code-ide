@@ -22,19 +22,21 @@ export class ChangeContentWidget extends WidgetType {
 	}
 	
 	toDOM(): HTMLElement {
-		const span = document.createElement('span');
-		span.className = `cm-change-widget cm-change-${this.type}`;
-		span.textContent = this.content;
+		// Use div for multi-line content, span for single-line
+		const hasNewlines = this.content.includes('\n');
+		const element = document.createElement(hasNewlines ? 'div' : 'span');
+		element.className = `cm-change-widget cm-change-${this.type}`;
+		element.textContent = this.content;
 		
 		// Prevent mouse interactions from affecting editor focus (except for accepted)
 		if (this.type !== 'accepted') {
-			span.addEventListener('mousedown', (e) => {
+			element.addEventListener('mousedown', (e) => {
 				e.preventDefault();
 				e.stopPropagation();
 			});
 		}
 		
-		return span;
+		return element;
 	}
 	
 	ignoreEvent(): boolean {
