@@ -488,21 +488,11 @@ export class IdeTools {
 							});
 						}
 						
-				// Try to find a markdown leaf that's already editing the file
+				// Always create a new leaf for inline diff to ensure the extension is active
+					// (existing editors may have been created before the extension was registered)
 					let leaf: WorkspaceLeaf | null = null;
 					const fileLeaves = this.app.workspace.getLeavesOfType('markdown');
 					console.log('[DIFF DEBUG] Found markdown leaves:', fileLeaves.length);
-					for (const fileLeaf of fileLeaves) {
-						const leafFile = (fileLeaf.view as any).file;
-						if (leafFile && leafFile.path === normalizedPath) {
-							console.log('[DIFF DEBUG] Found existing leaf for file');
-							leaf = fileLeaf;
-							break;
-						}
-					}
-					
-					// If the file isn't already open, create a new tab in the main workspace
-					if (!leaf) {
 						console.log('[DIFF DEBUG] Creating new leaf');
 						// Try to use an existing markdown tab's parent to create new tab
 						if (fileLeaves.length > 0) {
@@ -526,11 +516,10 @@ export class IdeTools {
 								// Last resort fallback
 								leaf = this.app.workspace.getLeaf('tab');
 							}
-						}
-						console.log('[DIFF DEBUG] Opening file in leaf');
-						await leaf.openFile(file);
 					}
-						
+					console.log('[DIFF DEBUG] Opening file in leaf');
+					await leaf.openFile(file);
+					
 				console.log('[DIFF DEBUG] Leaf opened, getting view');
 					// Get editor view
 						const view = leaf.view;
