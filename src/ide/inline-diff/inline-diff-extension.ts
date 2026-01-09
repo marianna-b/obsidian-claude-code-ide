@@ -2,7 +2,7 @@
  * Main CodeMirror extension for inline diff functionality
  */
 
-import { EditorState, RangeSetBuilder } from '@codemirror/state';
+import { EditorState, RangeSetBuilder, StateField } from '@codemirror/state';
 import { 
 	Decoration, 
 	DecorationSet, 
@@ -27,6 +27,21 @@ import {
 import { ChangeContentWidget, ChunkControlWidget, DiffHeaderWidget } from './diff-widgets';
 import { applyChunks } from './diff-chunks';
 import { DiffChunk } from './types';
+
+/**
+ * Store EditorView reference for widgets to use
+ */
+let editorViewRef: EditorView | null = null;
+
+const viewRefPlugin = ViewPlugin.fromClass(class {
+	constructor(view: EditorView) {
+		editorViewRef = view;
+	}
+	
+	destroy() {
+		editorViewRef = null;
+	}
+});
 
 /**
  * Generate decorations for the current diff state
@@ -111,28 +126,47 @@ function addChunkDecorations(builder: RangeSetBuilder<Decoration>, chunk: DiffCh
 }
 
 /**
- * ViewPlugin for managing decorations
+ * StateField for managing decorations
  */
-const decorationViewPlugin = ViewPlugin.fromClass(class {
-	decorations: DecorationSet = Decoration.none;
+const decorationStateField = StateField.define<DecorationSet>({
+	create(state): DecorationSet {
+		console.log('[InlineDiff] decorationStateField.create called');
+		// We need access to EditorView for widgets, but it's not available during create
+		// Decorations will be generated on first update
+		return Decoration.none;
+	},
 	
-	constructor(private view: EditorView) {
-		this.decorations = generateDecorations(view.state, view);
-	}
-	
-	update(update: ViewUpdate) {
-		// Regenerate decorations when diff state changes
-		const oldState = update.startState.field(inlineDiffStateField, false);
-		const newState = update.state.field(inlineDiffStateField, false);
+	update(decorations: DecorationSet, tr): DecorationSet {
+		console.log('[InlineDiff] decorationStateField.update called');
 		
-		if (oldState !== newState) {
-			console.log('[InlineDiff] State changed, regenerating decorations. New state:', newState);
-			this.decorations = generateDecorations(update.state, update.view);
-			console.log('[InlineDiff] Updated decorations, size:', this.decorations.size);
+		// Check if diff state changed
+		const diffState = tr.state.field(inlineDiffStateField, false);
+		
+		// If there's no diff state, clear decorations
+		if (!diffState) {
+			console.log('[InlineDiff] No diff state, clearing decorations');
+			return Decoration.none;
 		}
-	}
-}, {
-	decorations: v => v.decorations
+		
+		// Regenerate decorations if diff state changed
+		const hasStateChange = tr.effects.some(
+			e => e.is(showInlineDiffEffect) || 
+			     e.is(acceptChunkEffect) || 
+			     e.is(rejectChunkEffect) || 
+			     e.is(acceptAllChunksEffect) || 
+			     e.is(rejectAllChunksEffect) || 
+			     e.is(clearInlineDiffEffect)
+		);
+		
+		if (hasStateChange && editorViewRef) {
+			console.log('[InlineDiff] Diff state changed, regenerating decorations');
+			return generateDecorations(tr.state, editorViewRef);
+		}
+		
+		return decorations;
+	},
+	
+	provide: (field) => EditorView.decorations.from(field)
 });
 
 /**
@@ -245,7 +279,8 @@ const focusGuardPlugin = ViewPlugin.fromClass(class {
 export function createInlineDiffExtension(app: App) {
 	return [
 		inlineDiffStateField,
-		decorationViewPlugin,
+		viewRefPlugin, // Must come before decorationStateField
+		decorationStateField,
 		createApplyDiffPlugin(app),
 		focusGuardPlugin
 	];
