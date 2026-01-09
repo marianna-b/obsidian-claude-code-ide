@@ -4,7 +4,7 @@ import { ToolImplementation, ToolDefinition } from "../shared/tool-registry";
 import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/response-helpers";
 import { DiffView, DIFF_VIEW_TYPE } from "./diff-view";
 import { EditorView } from '@codemirror/view';
-import { showInlineDiffEffect } from './inline-diff/inline-diff-extension';
+import { showInlineDiffEffect, inlineDiffStateField } from './inline-diff/inline-diff-extension';
 import { computeDiffChunks } from './inline-diff/diff-chunks';
 
 // IDE-specific tool definitions
@@ -526,8 +526,13 @@ export class IdeTools {
 						
 						// Compute diff chunks
 						const chunks = computeDiffChunks(oldContent, new_file_contents || '');
+						console.log('[MCP] Computed chunks:', chunks.length, chunks);
+						
+						// Small delay to ensure editor is fully initialized
+						await new Promise(resolve => setTimeout(resolve, 100));
 						
 						// Dispatch inline diff effect
+						console.log('[MCP] Dispatching inline diff effect to CodeMirror');
 						cmEditor.dispatch({
 							effects: showInlineDiffEffect.of({
 								filePath: normalizedPath,
@@ -536,6 +541,10 @@ export class IdeTools {
 								targetContent: new_file_contents || ''
 							})
 						});
+						
+						// Verify state was set
+						const verifyState = cmEditor.state.field(inlineDiffStateField, false);
+						console.log('[MCP] Diff state after dispatch:', verifyState);
 						
 						// Return immediately - user will interact with chunks
 						return reply({

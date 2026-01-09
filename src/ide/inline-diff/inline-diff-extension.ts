@@ -33,12 +33,14 @@ import { DiffChunk } from './types';
  */
 function generateDecorations(state: EditorState, view: EditorView): DecorationSet {
 	const diffState = state.field(inlineDiffStateField, false);
+	console.log('[InlineDiff] generateDecorations called, diffState:', diffState);
 	if (!diffState) {
 		return Decoration.none;
 	}
 	
 	const builder = new RangeSetBuilder<Decoration>();
 	const pendingCount = getPendingChunksCount(diffState);
+	console.log('[InlineDiff] Pending chunks:', pendingCount, 'Total chunks:', diffState.chunks.length);
 	
 	// Add header widget at the top
 	builder.add(0, 0, Decoration.widget({
@@ -111,6 +113,7 @@ const decorationViewPlugin = ViewPlugin.fromClass(class {
 		const newState = update.state.field(inlineDiffStateField, false);
 		
 		if (oldState !== newState) {
+			console.log('[InlineDiff] State changed, regenerating decorations. New state:', newState);
 			this.decorations = generateDecorations(update.state, update.view);
 		}
 	}
