@@ -120,10 +120,14 @@ const decorationViewPlugin = ViewPlugin.fromClass(class {
 		if (oldState !== newState) {
 			console.log('[InlineDiff] State changed, regenerating decorations. New state:', newState);
 			this.decorations = generateDecorations(update.state, update.view);
+			console.log('[InlineDiff] Updated decorations, size:', this.decorations.size);
 		}
 	}
 }, {
-	decorations: (plugin) => plugin.decorations
+	decorations: (plugin) => {
+		console.log('[InlineDiff] Decorations getter called, size:', plugin.decorations.size);
+		return plugin.decorations;
+	}
 });
 
 /**
