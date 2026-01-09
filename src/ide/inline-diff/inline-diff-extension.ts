@@ -91,19 +91,19 @@ function generateDecorations(state: EditorState, view: EditorView): DecorationSe
 	const acceptedChunks = diffState.chunks.filter(c => c.status === 'accepted');
 	console.log('[InlineDiff] Processing accepted chunks:', acceptedChunks.length);
 	acceptedChunks.forEach(chunk => {
-		// Hide the old text completely
-		if (chunk.oldRange.from !== chunk.oldRange.to) {
-			builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.mark({
-				class: 'cm-diff-accepted-hidden',
-				attributes: { style: 'display: none;' }
-			}));
-		}
-		
-		// Show the new text as a simple widget
+		// Add new text widget BEFORE hiding the old text
 		if (chunk.newText) {
 			builder.add(chunk.oldRange.from, chunk.oldRange.from, Decoration.widget({
 				widget: new ChangeContentWidget(chunk.newText, 'accepted'),
 				side: -1
+			}));
+		}
+		
+		// Then hide the old text completely
+		if (chunk.oldRange.from !== chunk.oldRange.to) {
+			builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.mark({
+				class: 'cm-diff-accepted-hidden',
+				attributes: { style: 'display: none;' }
 			}));
 		}
 	});
@@ -130,7 +130,7 @@ function addChunkDecorations(builder: RangeSetBuilder<Decoration>, chunk: DiffCh
 	console.log('[InlineDiff] chunk.newText:', chunk.newText);
 	console.log('[InlineDiff] chunk.oldRange:', chunk.oldRange);
 	
-	// Add removed text widget as a RANGE decoration (like inlineAI does)
+	// Add removed text widget as a RANGE decoration at the OLD text location
 	if (chunk.oldText && chunk.oldRange.from !== chunk.oldRange.to) {
 		console.log('[InlineDiff] Adding removed text widget from', chunk.oldRange.from, 'to', chunk.oldRange.to);
 		builder.add(chunk.oldRange.from, chunk.oldRange.to, Decoration.widget({
@@ -139,10 +139,10 @@ function addChunkDecorations(builder: RangeSetBuilder<Decoration>, chunk: DiffCh
 		}));
 	}
 	
-	// Add new text widget as a POINT decoration at the start position
+	// Add new text widget as a POINT decoration AFTER the old range
 	if (chunk.newText) {
-		// For pure inserts or changes, place the new text at the start of the range
-		const insertPos = chunk.oldRange.from;
+		// Place after the removed text to avoid conflicts
+		const insertPos = chunk.oldRange.to;
 		console.log('[InlineDiff] Adding new text widget at', insertPos);
 		builder.add(insertPos, insertPos, Decoration.widget({
 			widget: new ChangeContentWidget(chunk.newText, 'added'),
