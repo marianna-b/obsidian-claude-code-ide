@@ -488,16 +488,29 @@ export class IdeTools {
 							});
 						}
 						
-				// Always create a new leaf for inline diff to ensure the extension is active
-					// (existing editors may have been created before the extension was registered)
+				// Check if file is already open in a leaf
 					let leaf: WorkspaceLeaf | null = null;
 					const fileLeaves = this.app.workspace.getLeavesOfType('markdown');
 					console.log('[DIFF DEBUG] Found markdown leaves:', fileLeaves.length);
-						console.log('[DIFF DEBUG] Creating new leaf');
-						// Try to use an existing markdown tab's parent to create new tab
+					
+					// Find existing leaf with this file
+					for (const l of fileLeaves) {
+						const view = l.view;
+						if (view.getViewType() === 'markdown') {
+							const viewFile = (view as any).file;
+							if (viewFile && viewFile.path === file.path) {
+								console.log('[DIFF DEBUG] Found existing leaf for file');
+								leaf = l;
+								break;
+							}
+						}
+					}
+					
+					// If file not open, create new leaf
+					if (!leaf) {
+						console.log('[DIFF DEBUG] Creating new leaf for file');
 						if (fileLeaves.length > 0) {
 							const referenceLeaf = fileLeaves[0];
-							// Create leaf in the same parent container as markdown tabs
 							const parent = referenceLeaf.parent;
 							if (parent) {
 								console.log('[DIFF DEBUG] Creating leaf in parent');
@@ -508,17 +521,20 @@ export class IdeTools {
 							}
 						} else {
 							console.log('[DIFF DEBUG] No markdown tabs, creating split');
-							// No markdown tabs exist, create a new split in the main workspace
 							const rootLeaf = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
 							if (rootLeaf) {
 								leaf = this.app.workspace.createLeafBySplit(rootLeaf, 'vertical');
 							} else {
-								// Last resort fallback
 								leaf = this.app.workspace.getLeaf('tab');
 							}
+						}
+						console.log('[DIFF DEBUG] Opening file in new leaf');
+						await leaf.openFile(file);
+					} else {
+						console.log('[DIFF DEBUG] Reusing existing leaf');
+						// Make the existing leaf active
+						this.app.workspace.setActiveLeaf(leaf, { focus: true });
 					}
-					console.log('[DIFF DEBUG] Opening file in leaf');
-					await leaf.openFile(file);
 					
 				console.log('[DIFF DEBUG] Leaf opened, getting view');
 					// Get editor view
