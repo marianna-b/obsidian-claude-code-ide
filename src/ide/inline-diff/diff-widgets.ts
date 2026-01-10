@@ -70,12 +70,19 @@ export class ChunkControlWidget extends WidgetType {
 			e.preventDefault();
 			e.stopPropagation();
 		});
-		acceptBtn.addEventListener('click', (e) => {
-			e.preventDefault();
+	acceptBtn.addEventListener('click', (e) => {
+		console.log('[Widget] Accept button clicked for chunk:', this.chunkId);
+		e.preventDefault();
+		e.stopPropagation();
+		try {
 			this.view.dispatch({
 				effects: acceptChunkEffect.of(this.chunkId)
 			});
-		});
+			console.log('[Widget] Accept effect dispatched successfully');
+		} catch (error) {
+			console.error('[Widget] Failed to dispatch accept effect:', error);
+		}
+	});
 		
 		// Discard button
 		const discardBtn = document.createElement('button');

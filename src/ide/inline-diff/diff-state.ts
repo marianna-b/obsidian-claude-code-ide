@@ -66,12 +66,15 @@ export const inlineDiffStateField = StateField.define<InlineDiffState | null>({
 		// Handle chunk acceptance/rejection
 		let newState = state;
 		
-		for (const effect of tr.effects) {
-			if (effect.is(acceptChunkEffect)) {
-				newState = updateChunkStatus(newState, effect.value, 'accepted');
-			} else if (effect.is(rejectChunkEffect)) {
-				newState = updateChunkStatus(newState, effect.value, 'rejected');
-			} else if (effect.is(acceptAllChunksEffect)) {
+	for (const effect of tr.effects) {
+		if (effect.is(acceptChunkEffect)) {
+			console.log('[DiffState] Processing acceptChunkEffect for:', effect.value);
+			newState = updateChunkStatus(newState, effect.value, 'accepted');
+			console.log('[DiffState] New state after accept:', newState.chunks.map(c => ({ id: c.id, status: c.status })));
+		} else if (effect.is(rejectChunkEffect)) {
+			console.log('[DiffState] Processing rejectChunkEffect for:', effect.value);
+			newState = updateChunkStatus(newState, effect.value, 'rejected');
+		} else if (effect.is(acceptAllChunksEffect)) {
 				newState = {
 					...newState,
 					chunks: newState.chunks.map(chunk => 

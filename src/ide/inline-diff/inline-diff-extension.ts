@@ -186,12 +186,18 @@ const decorationStateField = StateField.define<DecorationSet>({
 			     e.is(clearInlineDiffEffect)
 		);
 		
-		if (hasStateChange && editorViewRef) {
-			console.log('[InlineDiff] Diff state changed, regenerating decorations');
-			return generateDecorations(tr.state, editorViewRef);
+	if (hasStateChange) {
+		console.log('[InlineDiff] Diff state changed, regenerating decorations');
+		if (!editorViewRef) {
+			console.error('[InlineDiff] editorViewRef is null! This should not happen.');
+			// Try to continue anyway - we might be in a ViewUpdate context
+			// Return empty decorations rather than keeping stale ones
+			return Decoration.none;
 		}
-		
-		return decorations;
+		return generateDecorations(tr.state, editorViewRef);
+	}
+	
+	return decorations;
 	},
 	
 	provide: (field) => EditorView.decorations.from(field)
@@ -202,6 +208,8 @@ const decorationStateField = StateField.define<DecorationSet>({
  */
 function createApplyDiffPlugin(app: App) {
 	return ViewPlugin.fromClass(class {
+		private isApplying = false;
+		
 		constructor(private view: EditorView) {}
 		
 		update(update: ViewUpdate) {
@@ -209,14 +217,25 @@ function createApplyDiffPlugin(app: App) {
 			if (!diffState) return;
 			
 			// Check if all chunks have been processed
-			if (areAllChunksProcessed(diffState)) {
+			if (areAllChunksProcessed(diffState) && !this.isApplying) {
+				console.log('[ApplyDiffPlugin] All chunks processed, applying changes');
 				// Apply all accepted chunks at once
 				this.applyAcceptedChanges(diffState);
 			}
 		}
 		
-		private async applyAcceptedChanges(diffState: any) {
+	private async applyAcceptedChanges(diffState: any) {
+		if (this.isApplying) {
+			console.log('[ApplyDiffPlugin] Already applying changes, skipping');
+			return;
+		}
+		
+		this.isApplying = true;
+		console.log('[ApplyDiffPlugin] Starting to apply changes');
+		
+		try {
 			const acceptedChunks = getAcceptedChunks(diffState);
+			console.log('[ApplyDiffPlugin] Accepted chunks:', acceptedChunks.length);
 			
 			if (acceptedChunks.length === 0) {
 				// No chunks accepted
@@ -236,23 +255,28 @@ function createApplyDiffPlugin(app: App) {
 				decisions
 			);
 			
-			// Write to file
-			try {
-				const file = app.vault.getAbstractFileByPath(diffState.filePath);
-				if (file && file instanceof TFile) {
-					await app.vault.modify(file, finalContent);
-					new Notice(`Applied ${acceptedChunks.length} ${acceptedChunks.length === 1 ? 'change' : 'changes'}`);
-				} else {
-					new Notice('Error: File not found', 5000);
-				}
-			} catch (error) {
-				console.error('Failed to apply changes:', error);
-				new Notice(`Failed to apply changes: ${error.message}`, 5000);
-			}
+			console.log('[ApplyDiffPlugin] Computed final content, length:', finalContent.length);
 			
+			// Write to file
+			const file = app.vault.getAbstractFileByPath(diffState.filePath);
+			if (file && file instanceof TFile) {
+				console.log('[ApplyDiffPlugin] Writing to file:', diffState.filePath);
+				await app.vault.modify(file, finalContent);
+				new Notice(`Applied ${acceptedChunks.length} ${acceptedChunks.length === 1 ? 'change' : 'changes'}`);
+			} else {
+				console.error('[ApplyDiffPlugin] File not found:', diffState.filePath);
+				new Notice('Error: File not found', 5000);
+			}
+		} catch (error) {
+			console.error('[ApplyDiffPlugin] Failed to apply changes:', error);
+			new Notice(`Failed to apply changes: ${error.message}`, 5000);
+		} finally {
 			// Clear the diff state
 			this.clearDiff();
+			this.isApplying = false;
+			console.log('[ApplyDiffPlugin] Finished applying changes');
 		}
+	}
 		
 		private clearDiff() {
 			this.view.dispatch({
