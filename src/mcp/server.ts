@@ -146,16 +146,10 @@ export class McpServer {
 					
 					const filePath = path.join(dir, file);
 					try {
-						const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-						// Check if this lock file belongs to this process or if process is dead
-						if (content.pid === process.pid || this.isProcessDead(content.pid)) {
-							console.debug(`[MCP] Cleaning up stale lock file: ${filePath}`);
-							fs.unlinkSync(filePath);
-						}
-					} catch (error) {
-						// If we can't read/parse the file, it's probably corrupted - delete it
-						console.debug(`[MCP] Removing corrupted lock file: ${filePath}`);
+						console.debug(`[MCP] Cleaning up lock file: ${filePath}`);
 						fs.unlinkSync(filePath);
+					} catch (error) {
+						console.error(`[MCP] Failed to remove lock file ${filePath}:`, error);
 					}
 				}
 			} catch (error) {
@@ -164,16 +158,6 @@ export class McpServer {
 		}
 	}
 	
-	private isProcessDead(pid: number): boolean {
-		try {
-			// On Unix-like systems, sending signal 0 checks if process exists
-			// without actually sending a signal
-			process.kill(pid, 0);
-			return false; // Process is alive
-		} catch (error) {
-			return true; // Process doesn't exist or we don't have permission
-		}
-	}
 
 	private async createLockFile(port: number): Promise<void> {
 		const ideDir = getClaudeIdeDir();
