@@ -23,10 +23,15 @@ export class ChangeContentWidget extends WidgetType {
 	}
 	
 	toDOM(): HTMLElement {
-		// Use div for multi-line content, span for single-line
+		// Use pre for multiline to preserve formatting but display inline-block
 		const hasNewlines = this.content.includes('\n');
-		const element = document.createElement(hasNewlines ? 'div' : 'span');
+		const element = document.createElement(hasNewlines ? 'pre' : 'span');
 		element.className = `cm-change-widget cm-change-${this.type}`;
+		if (hasNewlines) {
+			element.style.display = 'inline-block';
+			element.style.margin = '0';
+			element.style.verticalAlign = 'top';
+		}
 		element.textContent = this.content;
 		
 		// Prevent mouse interactions from affecting editor focus (except for accepted)
