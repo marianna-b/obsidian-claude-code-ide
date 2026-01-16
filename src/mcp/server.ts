@@ -90,12 +90,28 @@ export class McpServer {
 	}
 
 	stop(): void {
-		this.wss?.close();
+		try {
+			this.wss?.close();
+		} catch (error) {
+			console.error('[MCP] Error closing WebSocket server:', error);
+		}
+		
+		// Clean up lock files
 		if (this.lockFilePath && fs.existsSync(this.lockFilePath)) {
-			fs.unlinkSync(this.lockFilePath);
+			try {
+				fs.unlinkSync(this.lockFilePath);
+				console.debug(`[MCP] Removed lock file: ${this.lockFilePath}`);
+			} catch (error) {
+				console.error(`[MCP] Failed to remove lock file ${this.lockFilePath}:`, error);
+			}
 		}
 		if (this.legacyLockFilePath && fs.existsSync(this.legacyLockFilePath)) {
-			fs.unlinkSync(this.legacyLockFilePath);
+			try {
+				fs.unlinkSync(this.legacyLockFilePath);
+				console.debug(`[MCP] Removed legacy lock file: ${this.legacyLockFilePath}`);
+			} catch (error) {
+				console.error(`[MCP] Failed to remove legacy lock file ${this.legacyLockFilePath}:`, error);
+			}
 		}
 	}
 
@@ -119,16 +135,58 @@ export class McpServer {
 		return this.port;
 	}
 
+	private cleanupStaleLockFiles(directories: string[]): void {
+		for (const dir of directories) {
+			if (!fs.existsSync(dir)) continue;
+			
+			try {
+				const files = fs.readdirSync(dir);
+				for (const file of files) {
+					if (!file.endsWith('.lock')) continue;
+					
+					const filePath = path.join(dir, file);
+					try {
+						const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+						// Check if this lock file belongs to this process or if process is dead
+						if (content.pid === process.pid || this.isProcessDead(content.pid)) {
+							console.debug(`[MCP] Cleaning up stale lock file: ${filePath}`);
+							fs.unlinkSync(filePath);
+						}
+					} catch (error) {
+						// If we can't read/parse the file, it's probably corrupted - delete it
+						console.debug(`[MCP] Removing corrupted lock file: ${filePath}`);
+						fs.unlinkSync(filePath);
+					}
+				}
+			} catch (error) {
+				console.error(`[MCP] Error cleaning lock files in ${dir}:`, error);
+			}
+		}
+	}
+	
+	private isProcessDead(pid: number): boolean {
+		try {
+			// On Unix-like systems, sending signal 0 checks if process exists
+			// without actually sending a signal
+			process.kill(pid, 0);
+			return false; // Process is alive
+		} catch (error) {
+			return true; // Process doesn't exist or we don't have permission
+		}
+	}
+
 	private async createLockFile(port: number): Promise<void> {
 		const ideDir = getClaudeIdeDir();
 		fs.mkdirSync(ideDir, { recursive: true });
-
-		this.lockFilePath = path.join(ideDir, `${port}.lock`);
 		
-		// Also write to ~/.claude/ide/ for compatibility
 		const homeDir = os.homedir();
 		const legacyIdeDir = path.join(homeDir, '.claude', 'ide');
 		fs.mkdirSync(legacyIdeDir, { recursive: true });
+		
+		// Clean up stale lock files from this process before creating new ones
+		this.cleanupStaleLockFiles([ideDir, legacyIdeDir]);
+
+		this.lockFilePath = path.join(ideDir, `${port}.lock`);
 		this.legacyLockFilePath = path.join(legacyIdeDir, `${port}.lock`);
 		
 		// We'll get the base path from the caller
