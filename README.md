@@ -143,10 +143,18 @@ This plugin implements a flexible tool system that allows different tools to be 
    - Obsidian API access: `obsidian_api`
 
 2. **IDE-specific Tools** (only available via Claude Code WebSocket):
+   - `openFile` - Open files and optionally select text ranges
+   - `getCurrentSelection` - Get the current text selection and cursor position
+   - `getLatestSelection` - Get the most recent selection (returns current selection)
+   - `getOpenEditors` - List all open editor tabs
+   - `getWorkspaceFolders` - Get vault folder information
+   - `checkDocumentDirty` - Check if a document has unsaved changes
+   - `saveDocument` - Save a document
    - `getDiagnostics` - System and vault diagnostics
-   - `openDiff` - Diff view operations (stub for Obsidian)
-   - `close_tab` - Tab management (stub for Obsidian)
-   - `closeAllDiffTabs` - Bulk tab operations (stub for Obsidian)
+   - `openDiff` - Show visual diff view with accept/reject buttons
+   - `close_tab` - Tab management (compatibility stub)
+   - `closeAllDiffTabs` - Close all diff tabs (compatibility stub)
+   - `executeCode` - Code execution (not supported, returns error)
 
 3. **MCP-only Tools** (only available via HTTP/SSE):
    - Currently none, but the architecture supports adding them

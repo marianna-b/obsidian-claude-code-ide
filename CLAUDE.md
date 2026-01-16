@@ -59,10 +59,18 @@ This is an Obsidian plugin that implements MCP (Model Context Protocol) servers 
 - `get_workspace_files` - List all files in vault
 
 **IDE-specific tools (WebSocket only):**
-- `getDiagnostics` - Return file diagnostics
-- `openDiff` - Open diff view for file changes
-- `close_tab` - Close specific tabs
-- `closeAllDiffTabs` - Close all diff views
+- `openFile` - Open files and optionally select text ranges
+- `getCurrentSelection` - Get the current text selection and cursor position
+- `getLatestSelection` - Get the most recent selection
+- `getOpenEditors` - List all open editor tabs
+- `getWorkspaceFolders` - Get vault folder information
+- `checkDocumentDirty` - Check if a document has unsaved changes
+- `saveDocument` - Save a document
+- `getDiagnostics` - Return vault diagnostics
+- `openDiff` - Show visual diff view with accept/reject buttons (fully implemented)
+- `close_tab` - Close specific tabs (compatibility stub)
+- `closeAllDiffTabs` - Close all diff views (compatibility stub)
+- `executeCode` - Code execution (not supported)
 
 ### Key Design Patterns
 
@@ -144,6 +152,21 @@ For minor and major releases, follow the manual process in `docs/RELEASE_CHECKLI
 2. Test thoroughly with both Claude Code and Claude Desktop
 3. Create GitHub release with version tag
 4. Upload `manifest.json`, `main.js`, and `styles.css` as assets
+
+## Recent Improvements
+
+### Diff View Features
+- **Traditional Diff View**: Two-column side-by-side diff with save/reject buttons
+- **Inline Diff View**: CodeMirror-based inline diffs with per-chunk accept/reject
+- Both views support create, edit, delete, and move/rename operations
+- Git diff header stripping for clean content display
+
+### Stability Enhancements
+- Refactored error handling to eliminate code duplication
+- Added null safety checks throughout workspace manager
+- Improved server lifecycle with proper error boundaries
+- Promise-based diff view that always resolves (no hanging)
+- Protected broadcast operations from throwing errors
 
 ## Coding Guidelines and Best Practices
 
