@@ -23,14 +23,14 @@ export class ChangeContentWidget extends WidgetType {
 	}
 	
 	toDOM(): HTMLElement {
-		// Use pre for multiline to preserve formatting but display inline-block
+		// Use pre for multiline to preserve formatting, display as block
 		const hasNewlines = this.content.includes('\n');
 		const element = document.createElement(hasNewlines ? 'pre' : 'span');
 		element.className = `cm-change-widget cm-change-${this.type}`;
 		if (hasNewlines) {
-			element.style.display = 'inline-block';
+			element.style.display = 'block';
 			element.style.margin = '0';
-			element.style.verticalAlign = 'top';
+			element.style.padding = '2px 4px';
 		}
 		element.textContent = this.content;
 		
