@@ -7,7 +7,8 @@ import {
 	acceptChunkEffect, 
 	rejectChunkEffect,
 	acceptAllChunksEffect,
-	rejectAllChunksEffect
+	rejectAllChunksEffect,
+	clearInlineDiffEffect
 } from './diff-state';
 
 /**
@@ -215,8 +216,38 @@ export class DiffHeaderWidget extends WidgetType {
 			}
 		});
 		
+		// Cancel button
+		const cancelBtn = document.createElement('button');
+		cancelBtn.textContent = 'Cancel';
+		cancelBtn.className = 'cm-diff-cancel-button';
+		cancelBtn.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+		});
+		cancelBtn.addEventListener('click', (e) => {
+			console.log('[Widget] Cancel button clicked');
+			e.preventDefault();
+			e.stopPropagation();
+			
+			if (!this.view) {
+				console.error('[Widget] EditorView reference is null!');
+				return;
+			}
+			
+			try {
+				// Clear the diff without applying changes
+				this.view.dispatch({
+					effects: clearInlineDiffEffect.of(null)
+				});
+				console.log('[Widget] Cancel effect dispatched successfully');
+			} catch (error) {
+				console.error('[Widget] Failed to dispatch cancel effect:', error);
+			}
+		});
+		
 		actions.appendChild(acceptAllBtn);
 		actions.appendChild(rejectAllBtn);
+		actions.appendChild(cancelBtn);
 		
 		header.appendChild(counter);
 		header.appendChild(actions);

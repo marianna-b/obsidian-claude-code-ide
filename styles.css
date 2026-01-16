@@ -420,6 +420,12 @@
 	opacity: 0.8;
 }
 
+.cm-diff-cancel-button {
+	background-color: var(--background-secondary) !important;
+	color: var(--text-muted) !important;
+	border-color: var(--background-modifier-border) !important;
+}
+
 .cm-diff-chunk-controls {
 	display: flex;
 	align-items: center;
