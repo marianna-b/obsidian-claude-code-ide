@@ -70,19 +70,26 @@ export class ChunkControlWidget extends WidgetType {
 			e.preventDefault();
 			e.stopPropagation();
 		});
-	acceptBtn.addEventListener('click', (e) => {
-		console.log('[Widget] Accept button clicked for chunk:', this.chunkId);
-		e.preventDefault();
-		e.stopPropagation();
-		try {
-			this.view.dispatch({
-				effects: acceptChunkEffect.of(this.chunkId)
-			});
-			console.log('[Widget] Accept effect dispatched successfully');
-		} catch (error) {
-			console.error('[Widget] Failed to dispatch accept effect:', error);
-		}
-	});
+		acceptBtn.addEventListener('click', (e) => {
+			console.log('[Widget] Accept button clicked for chunk:', this.chunkId);
+			e.preventDefault();
+			e.stopPropagation();
+			
+			if (!this.view) {
+				console.error('[Widget] EditorView reference is null!');
+				return;
+			}
+			
+			try {
+				console.log('[Widget] Dispatching accept effect...');
+				this.view.dispatch({
+					effects: acceptChunkEffect.of(this.chunkId)
+				});
+				console.log('[Widget] Accept effect dispatched successfully');
+			} catch (error) {
+				console.error('[Widget] Failed to dispatch accept effect:', error);
+			}
+		});
 		
 		// Discard button
 		const discardBtn = document.createElement('button');
@@ -92,10 +99,23 @@ export class ChunkControlWidget extends WidgetType {
 			e.stopPropagation();
 		});
 		discardBtn.addEventListener('click', (e) => {
+			console.log('[Widget] Discard button clicked for chunk:', this.chunkId);
 			e.preventDefault();
-			this.view.dispatch({
-				effects: rejectChunkEffect.of(this.chunkId)
-			});
+			e.stopPropagation();
+			
+			if (!this.view) {
+				console.error('[Widget] EditorView reference is null!');
+				return;
+			}
+			
+			try {
+				this.view.dispatch({
+					effects: rejectChunkEffect.of(this.chunkId)
+				});
+				console.log('[Widget] Discard effect dispatched successfully');
+			} catch (error) {
+				console.error('[Widget] Failed to dispatch reject effect:', error);
+			}
 		});
 		
 		// Chunk info
@@ -149,10 +169,23 @@ export class DiffHeaderWidget extends WidgetType {
 			e.stopPropagation();
 		});
 		acceptAllBtn.addEventListener('click', (e) => {
+			console.log('[Widget] Accept All button clicked');
 			e.preventDefault();
-			this.view.dispatch({
-				effects: acceptAllChunksEffect.of(null)
-			});
+			e.stopPropagation();
+			
+			if (!this.view) {
+				console.error('[Widget] EditorView reference is null!');
+				return;
+			}
+			
+			try {
+				this.view.dispatch({
+					effects: acceptAllChunksEffect.of(null)
+				});
+				console.log('[Widget] Accept All effect dispatched successfully');
+			} catch (error) {
+				console.error('[Widget] Failed to dispatch accept all effect:', error);
+			}
 		});
 		
 		// Reject All button
@@ -163,10 +196,23 @@ export class DiffHeaderWidget extends WidgetType {
 			e.stopPropagation();
 		});
 		rejectAllBtn.addEventListener('click', (e) => {
+			console.log('[Widget] Reject All button clicked');
 			e.preventDefault();
-			this.view.dispatch({
-				effects: rejectAllChunksEffect.of(null)
-			});
+			e.stopPropagation();
+			
+			if (!this.view) {
+				console.error('[Widget] EditorView reference is null!');
+				return;
+			}
+			
+			try {
+				this.view.dispatch({
+					effects: rejectAllChunksEffect.of(null)
+				});
+				console.log('[Widget] Reject All effect dispatched successfully');
+			} catch (error) {
+				console.error('[Widget] Failed to dispatch reject all effect:', error);
+			}
 		});
 		
 		actions.appendChild(acceptAllBtn);

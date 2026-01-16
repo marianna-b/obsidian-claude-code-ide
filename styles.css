@@ -462,10 +462,14 @@
 .cm-change-widget {
 	padding: 0px 4px;
 	color: var(--text-normal);
-	/* display set by element type (span=inline, div=block) */
-	font-family: var(--font-text);
+	font-family: var(--font-monospace);
 	line-height: 1.5;
-	white-space: pre-wrap; /* Preserve newlines and spaces */
+	white-space: pre-wrap;
+	word-break: normal;
+	overflow-wrap: normal;
+	display: inline-block;
+	max-width: 100%;
+	vertical-align: top;
 }
 
 .cm-change-added {

@@ -129,8 +129,12 @@ export class DiffView extends ItemView {
 	}
 
 	private renderDiff(container: HTMLElement, oldText: string, newText: string) {
+		// Sanitize inputs in case they contain git diff headers
+		const sanitizedOldText = this.stripDiffHeaders(oldText);
+		const sanitizedNewText = this.stripDiffHeaders(newText);
+		
 		// Use the diff library to compute differences
-		const differences = diffLines(oldText, newText);
+		const differences = diffLines(sanitizedOldText, sanitizedNewText);
 		
 		// Create two-column layout
 		const wrapper = container.createDiv({ cls: 'diff-wrapper' });
@@ -181,6 +185,32 @@ export class DiffView extends ItemView {
 		});
 	}
 
+	private stripDiffHeaders(text: string): string {
+		if (!text) return text;
+		
+		// Remove common git diff headers that might accidentally be included
+		const lines = text.split('\n');
+		let startIndex = 0;
+		
+		// Skip lines that look like diff headers
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			// Check for common diff header patterns
+			if (line.startsWith('diff --git') || 
+			    line.startsWith('--- ') || 
+			    line.startsWith('+++ ') ||
+			    line.startsWith('index ') ||
+			    line.match(/^@@ .* @@/)) {
+				startIndex = i + 1;
+			} else if (startIndex > 0) {
+				// Found actual content after headers
+				break;
+			}
+		}
+		
+		return startIndex > 0 ? lines.slice(startIndex).join('\n') : text;
+	}
+	
 	private createLineElement(
 		container: HTMLElement, 
 		text: string, 
