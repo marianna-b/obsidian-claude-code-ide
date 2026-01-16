@@ -237,6 +237,11 @@ export class DiffView extends ItemView {
 	}
 
 	private async handleSave() {
+		if (this.resolvePromise === null) {
+			console.warn('[DiffView] Save called but no promise to resolve');
+			return;
+		}
+		
 		try {
 			// Handle file deletion
 			if (!this.state.newFileContents || this.state.newFileContents.length === 0) {
@@ -320,21 +325,31 @@ export class DiffView extends ItemView {
 				this.close();
 			}
 		} catch (error) {
-			console.error('Failed to save changes:', error);
+			console.error('[DiffView] Failed to save changes:', error);
 			new Notice(`Failed to save changes: ${error.message}`);
+			// Still resolve the promise to prevent hanging
+			if (this.resolvePromise) {
+				this.resolvePromise('DIFF_REJECTED');
+				this.resolvePromise = null;
+			}
 		}
 	}
 
 	private handleReject() {
-		new Notice('Changes rejected');
-		
-		// Resolve the promise with rejection
-		if (this.resolvePromise) {
-			this.resolvePromise('DIFF_REJECTED');
+		try {
+			new Notice('Changes rejected');
+			
+			// Resolve the promise with rejection
+			if (this.resolvePromise) {
+				this.resolvePromise('DIFF_REJECTED');
+				this.resolvePromise = null;
+			}
+			
+			// Close the view
+			this.close();
+		} catch (error) {
+			console.error('[DiffView] Error handling reject:', error);
 		}
-		
-		// Close the view
-		this.close();
 	}
 
 	async onClose() {

@@ -106,6 +106,35 @@ export default class ClaudeMcpPlugin extends Plugin {
 		this.removeTerminalRibbonIcon();
 	}
 
+	private handleServerError(error: any, context: string): void {
+		console.error(`[MCP] Failed to ${context}:`, error);
+
+		// Handle specific error types
+		if (
+			error.message?.includes("EADDRINUSE") ||
+			error.name === "PortInUseError"
+		) {
+			new Notice(
+				`Port ${this.settings.mcpHttpPort} is already in use. This might be because:\n` +
+					`• Another Obsidian vault is running this plugin\n` +
+					`• Another application is using this port\n\n` +
+					`Please configure a different port in Settings → Community Plugins → Claude Code.`,
+				10000
+			);
+		} else if (
+			error.message?.includes("EACCES") ||
+			error.name === "PermissionError"
+		) {
+			new Notice(
+				`Permission denied for port ${this.settings.mcpHttpPort}. ` +
+					`Try using a port above 1024 in Settings → Community Plugins → Claude Code.`,
+				8000
+			);
+		} else {
+			new Notice(`Failed to ${context}: ${error.message}`, 8000);
+		}
+	}
+
 	async initializeMcpServer(): Promise<void> {
 		try {
 			// Initialize dual server (WebSocket + HTTP/SSE)
@@ -141,36 +170,7 @@ export default class ClaudeMcpPlugin extends Plugin {
 				: "HTTP: disabled";
 			new Notice(`Claude MCP running - ${wsStatus}, ${httpStatus}`);
 		} catch (error) {
-			console.error("[MCP] Failed to start server:", error);
-
-			// Handle specific error types
-			if (
-				error.message?.includes("EADDRINUSE") ||
-				error.name === "PortInUseError"
-			) {
-				// Enhanced message for port conflicts, especially multiple vaults
-				new Notice(
-					`Port ${this.settings.mcpHttpPort} is already in use. This might be because:\n` +
-						`• Another Obsidian vault is running this plugin\n` +
-						`• Another application is using this port\n\n` +
-						`Please configure a different port in Settings → Community Plugins → Claude Code.`,
-					10000
-				);
-			} else if (
-				error.message?.includes("EACCES") ||
-				error.name === "PermissionError"
-			) {
-				new Notice(
-					`Permission denied for port ${this.settings.mcpHttpPort}. ` +
-						`Try using a port above 1024 in Settings → Community Plugins → Claude Code.`,
-					8000
-				);
-			} else {
-				new Notice(
-					`Failed to start MCP server: ${error.message}`,
-					8000
-				);
-			}
+			this.handleServerError(error, "start server");
 		}
 	}
 
@@ -180,6 +180,8 @@ export default class ClaudeMcpPlugin extends Plugin {
 			if (this.mcpServer) {
 				console.debug("[MCP] Stopping server for restart...");
 				this.mcpServer.stop();
+				// Clear reference to prevent reuse of stopped server
+				this.mcpServer = null as any;
 			}
 
 			// Small delay to ensure clean shutdown
@@ -188,35 +190,7 @@ export default class ClaudeMcpPlugin extends Plugin {
 			// Restart server with new settings
 			await this.initializeMcpServer();
 		} catch (error) {
-			console.error("[MCP] Failed to restart server:", error);
-
-			// Handle specific error types
-			if (
-				error.message?.includes("EADDRINUSE") ||
-				error.name === "PortInUseError"
-			) {
-				new Notice(
-					`Port ${this.settings.mcpHttpPort} is already in use. This might be because:\n` +
-						`• Another Obsidian vault is running this plugin\n` +
-						`• Another application is using this port\n\n` +
-						`Please configure a different port in Settings → Community Plugins → Claude Code.`,
-					10000
-				);
-			} else if (
-				error.message?.includes("EACCES") ||
-				error.name === "PermissionError"
-			) {
-				new Notice(
-					`Permission denied for port ${this.settings.mcpHttpPort}. ` +
-						`Try using a port above 1024 in Settings → Community Plugins → Claude Code.`,
-					8000
-				);
-			} else {
-				new Notice(
-					`Failed to restart MCP server: ${error.message}`,
-					8000
-				);
-			}
+			this.handleServerError(error, "restart server");
 		}
 	}
 

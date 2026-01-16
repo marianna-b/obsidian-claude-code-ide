@@ -159,24 +159,38 @@ export class McpDualServer {
 		console.debug("[MCP Dual] Stopping servers...");
 		
 		if (this.wsServer) {
-			this.wsServer.stop();
-			this.wsServer = undefined;
+			try {
+				this.wsServer.stop();
+			} catch (error) {
+				console.error("[MCP Dual] Error stopping WebSocket server:", error);
+			} finally {
+				this.wsServer = undefined;
+			}
 		}
 
 		if (this.httpServer) {
-			this.httpServer.stop();
-			this.httpServer = undefined;
+			try {
+				this.httpServer.stop();
+			} catch (error) {
+				console.error("[MCP Dual] Error stopping HTTP server:", error);
+			} finally {
+				this.httpServer = undefined;
+			}
 		}
 	}
 
 	broadcast(message: McpNotification): void {
-		// Broadcast to both WebSocket and HTTP/SSE clients
-		if (this.wsServer) {
-			this.wsServer.broadcast(message);
-		}
+		try {
+			// Broadcast to both WebSocket and HTTP/SSE clients
+			if (this.wsServer) {
+				this.wsServer.broadcast(message);
+			}
 
-		if (this.httpServer) {
-			this.httpServer.broadcast(message);
+			if (this.httpServer) {
+				this.httpServer.broadcast(message);
+			}
+		} catch (error) {
+			console.error('[MCP Dual] Error broadcasting message:', error);
 		}
 	}
 

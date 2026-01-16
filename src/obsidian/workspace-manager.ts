@@ -47,17 +47,24 @@ export class WorkspaceManager {
 	}
 
 	private checkAndSendSelection(): void {
-		// Check if the selection is within an editable note view
-		if (!this.isSelectionInEditableNote()) {
-			return;
-		}
+		try {
+			// Check if the selection is within an editable note view
+			if (!this.isSelectionInEditableNote()) {
+				return;
+			}
 
-		const activeLeaf = this.app.workspace.activeLeaf;
-		const view = activeLeaf?.view;
-		const editor = (view as any)?.editor;
+			const activeLeaf = this.app.workspace.activeLeaf;
+			if (!activeLeaf) return;
+			
+			const view = activeLeaf.view;
+			if (!view) return;
+			
+			const editor = (view as any)?.editor;
+			if (!editor) return;
 
-		if (editor) {
 			this.sendSelectionContext(editor);
+		} catch (error) {
+			console.error('[WorkspaceManager] Error checking selection:', error);
 		}
 	}
 
@@ -111,69 +118,81 @@ export class WorkspaceManager {
 	}
 
 	private sendCurrentFileContext(): void {
-		const activeFile = this.app.workspace.getActiveFile();
+		try {
+			const activeFile = this.app.workspace.getActiveFile();
 
-		// Try to get the active editor for cursor/selection info
-		const activeLeaf = this.app.workspace.activeLeaf;
-		const view = activeLeaf?.view;
-		const editor = (view as any)?.editor;
+			// Try to get the active editor for cursor/selection info
+			const activeLeaf = this.app.workspace.activeLeaf;
+			const view = activeLeaf?.view;
+			const editor = (view as any)?.editor;
 
-		if (editor && activeFile) {
-			this.sendSelectionContext(editor);
-		} else {
-			// Fallback to basic file context
-			const params: SelectionChangedParams = {
-				text: "",
-				filePath: activeFile ? activeFile.path : null,
-				fileUrl: activeFile
-					? `file://${this.getAbsolutePath(activeFile.path)}`
-					: null,
-				selection: {
-					start: { line: 0, character: 0 },
-					end: { line: 0, character: 0 },
-					isEmpty: true,
-				},
-			};
+			if (editor && activeFile) {
+				this.sendSelectionContext(editor);
+			} else {
+				// Fallback to basic file context
+				const params: SelectionChangedParams = {
+					text: "",
+					filePath: activeFile ? activeFile.path : null,
+					fileUrl: activeFile
+						? `file://${this.getAbsolutePath(activeFile.path)}`
+						: null,
+					selection: {
+						start: { line: 0, character: 0 },
+						end: { line: 0, character: 0 },
+						isEmpty: true,
+					},
+				};
 
-			this.broadcastSelectionChange(params);
+				this.broadcastSelectionChange(params);
+			}
+		} catch (error) {
+			console.error('[WorkspaceManager] Error sending file context:', error);
 		}
 	}
 
 	private sendSelectionContext(editor: Editor): void {
-		const activeFile = this.app.workspace.getActiveFile();
-		if (!activeFile) return;
+		try {
+			const activeFile = this.app.workspace.getActiveFile();
+			if (!activeFile) return;
 
-		// Get cursor position and selection
-		const cursor = editor.getCursor();
-		const selection = editor.getSelection();
-		const hasSelection = selection.length > 0;
+			// Get cursor position and selection
+			const cursor = editor.getCursor();
+			if (!cursor) return;
+			
+			const selection = editor.getSelection() || "";
+			const hasSelection = selection.length > 0;
 
-		// Get selection range if text is selected
-		let selectionRange: SelectionRange;
-		if (hasSelection) {
-			const from = editor.getCursor("from");
-			const to = editor.getCursor("to");
-			selectionRange = {
-				start: { line: from.line, character: from.ch },
-				end: { line: to.line, character: to.ch },
-				isEmpty: false,
+			// Get selection range if text is selected
+			let selectionRange: SelectionRange;
+			if (hasSelection) {
+				const from = editor.getCursor("from");
+				const to = editor.getCursor("to");
+				if (!from || !to) return;
+				
+				selectionRange = {
+					start: { line: from.line, character: from.ch },
+					end: { line: to.line, character: to.ch },
+					isEmpty: false,
+				};
+			} else {
+				selectionRange = {
+					start: { line: cursor.line, character: cursor.ch },
+					end: { line: cursor.line, character: cursor.ch },
+					isEmpty: true,
+				};
+			}
+
+			const params: SelectionChangedParams = {
+				text: selection,
+				filePath: activeFile.path,
+				fileUrl: `file://${this.getAbsolutePath(activeFile.path)}`,
+				selection: selectionRange,
 			};
-		} else {
-			selectionRange = {
-				start: { line: cursor.line, character: cursor.ch },
-				end: { line: cursor.line, character: cursor.ch },
-				isEmpty: true,
-			};
+
+			this.broadcastSelectionChange(params);
+		} catch (error) {
+			console.error('[WorkspaceManager] Error sending selection context:', error);
 		}
-
-		const params: SelectionChangedParams = {
-			text: selection,
-			filePath: activeFile.path,
-			fileUrl: `file://${this.getAbsolutePath(activeFile.path)}`,
-			selection: selectionRange,
-		};
-
-		this.broadcastSelectionChange(params);
 	}
 
 	private broadcastSelectionChange(params: SelectionChangedParams): void {
