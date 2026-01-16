@@ -464,19 +464,25 @@
 	font-weight: 500;
 }
 
+/* Inline change widgets */
 .cm-change-widget {
 	display: inline;
 	padding: 2px 4px;
 	margin: 0;
-	color: var(--text-normal);
-	font-family: inherit;
-	font-size: inherit;
-	font-weight: inherit;
-	line-height: inherit;
+	color: inherit;
+	font: inherit;
 	white-space: pre-wrap;
 	word-break: keep-all;
 	overflow-wrap: normal;
 	vertical-align: baseline;
+	box-sizing: border-box;
+}
+
+/* Multiline pre elements need block styling */
+.cm-change-widget pre {
+	font: inherit;
+	margin: 0;
+	padding: 0;
 }
 
 .cm-change-added {
