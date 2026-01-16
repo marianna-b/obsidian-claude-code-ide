@@ -2,7 +2,6 @@ import { App, TFile, WorkspaceLeaf } from "obsidian";
 import { McpReplyFunction } from "../mcp/types";
 import { ToolImplementation, ToolDefinition } from "../shared/tool-registry";
 import { formatToolResponse, formatErrorResponse, ErrorCodes } from "../mcp/response-helpers";
-import { DiffView, DIFF_VIEW_TYPE } from "./diff-view";
 import { EditorView } from '@codemirror/view';
 import { showInlineDiffEffect, inlineDiffStateField } from './inline-diff/inline-diff-extension';
 import { computeDiffChunks } from './inline-diff/diff-chunks';
